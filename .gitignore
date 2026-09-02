@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.idx/
+_extracted/
+scripts/vectors/potion-base-8M/
+.cache/
+.superpowers/
