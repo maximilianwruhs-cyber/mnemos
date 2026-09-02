@@ -132,6 +132,32 @@ class RecallTests(unittest.TestCase):
         self.assertFalse(recall._vec_enabled(10))
         self.assertTrue(recall._vec_enabled(recall.VEC_ACTIVATE_N))
 
+    def test_hybrid_surfaces_paraphrase_only_note(self):
+        import os, importlib.util, sys, shutil, json, tempfile
+        vspec = importlib.util.spec_from_file_location("vecidx", Path("/tmp/vecidx.py"))
+        vecidx = importlib.util.module_from_spec(vspec); sys.modules["vecidx"] = vecidx
+        vspec.loader.exec_module(vecidx)
+        if not vecidx.available():
+            self.skipTest("vector model not fetched (Task 8)")
+        work = tempfile.mkdtemp(prefix="hybrid_", dir="/tmp")
+        self.addCleanup(lambda: shutil.rmtree(work, ignore_errors=True))
+        files = {
+            "net.md": "# net\nSockets to external hosts raise OSError; no outbound egress.\n",
+            "cof.md": "# cof\nThe floor-three coffee machine is broken.\n",
+        }
+        for n, b in files.items():
+            Path(work, n).write_text(b, encoding="utf-8")
+        Path(work, "_manifest.json").write_text(
+            json.dumps({n: f"/Memory/{n}" for n in files}), encoding="utf-8")
+        docs = recall.build_corpus(work)
+        vecidx.build(work, docs=docs)
+        os.environ["RECALL_VEC"] = "1"
+        self.addCleanup(lambda: os.environ.pop("RECALL_VEC", None))
+        # query shares NO content token with net.md ("egress"/"sockets" absent)
+        hits = recall.search("cannot reach the internet", docs, stage=work)
+        self.assertTrue(hits and hits[0]["path"] == "/Memory/net.md", hits)
+        self.assertGreater(hits[0]["vec"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
