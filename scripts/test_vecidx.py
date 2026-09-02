@@ -3,6 +3,7 @@ import importlib.util, sys
 from pathlib import Path
 import unittest
 import math
+import tempfile, json, shutil
 
 MODULE = Path(__file__).with_name("vecidx.py")
 spec = importlib.util.spec_from_file_location("vecidx", MODULE)
@@ -40,6 +41,44 @@ class EmbedTests(unittest.TestCase):
         ])
         near, far = float(m[0] @ q), float(m[1] @ q)
         self.assertGreater(near, far)
+
+
+@unittest.skipUnless(vecidx.available(), "vector model not fetched (Task 8)")
+class IndexTests(unittest.TestCase):
+    def _docs(self):
+        return {
+            "/Memory/a.md": {"title": "no network", "text": "sockets raise OSError"},
+            "/Memory/b.md": {"title": "read only out dir", "text": "writes fail EROFS"},
+        }
+
+    def test_build_then_load_roundtrips_keys(self):
+        d = tempfile.mkdtemp(dir="/tmp"); self.addCleanup(lambda: shutil.rmtree(d, True))
+        stats = vecidx.build(d, docs=self._docs())
+        self.assertEqual(stats["built"], 2)
+        keys, mat = vecidx.load(d)
+        self.assertEqual(set(keys), {"/Memory/a.md", "/Memory/b.md"})
+        self.assertEqual(mat.shape[0], 2)
+
+    def test_unchanged_docs_are_reused_not_reembedded(self):
+        d = tempfile.mkdtemp(dir="/tmp"); self.addCleanup(lambda: shutil.rmtree(d, True))
+        vecidx.build(d, docs=self._docs())
+        stats = vecidx.build(d, docs=self._docs())
+        self.assertEqual(stats["reused"], 2)
+        self.assertEqual(stats["built"], 0)
+
+    def test_changed_doc_reembeds_and_deleted_doc_prunes(self):
+        d = tempfile.mkdtemp(dir="/tmp"); self.addCleanup(lambda: shutil.rmtree(d, True))
+        vecidx.build(d, docs=self._docs())
+        docs = {"/Memory/a.md": {"title": "no network", "text": "CHANGED body now"}}
+        stats = vecidx.build(d, docs=docs)
+        self.assertEqual(stats["built"], 1)
+        self.assertEqual(stats["pruned"], 1)
+        keys, _ = vecidx.load(d)
+        self.assertEqual(keys, ["/Memory/a.md"])
+
+    def test_load_missing_index_returns_none(self):
+        d = tempfile.mkdtemp(dir="/tmp"); self.addCleanup(lambda: shutil.rmtree(d, True))
+        self.assertIsNone(vecidx.load(d))
 
 
 if __name__ == "__main__":
