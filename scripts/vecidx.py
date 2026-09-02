@@ -170,3 +170,22 @@ def search_vectors(query, keys, matrix, floor: float = VEC_FLOOR):
         if c >= floor:
             out[keys[i]] = c
     return out
+
+
+def main(argv=None):
+    import sys
+    argv = argv if argv is not None else sys.argv[1:]
+    if len(argv) >= 2 and argv[0] == "build":
+        if not available():
+            print("vector extra unavailable (need numpy+model2vec+model dir)", file=sys.stderr)
+            return 2
+        stats = build(argv[1])
+        print("index:", stats)
+        return 0
+    print("usage: vecidx.py build <stage_dir>", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+

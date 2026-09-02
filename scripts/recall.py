@@ -442,7 +442,7 @@ def main():
         print("no staged notes found in /tmp", file=sys.stderr)
         return 2
     try:
-        rows = search(query, docs, limit)
+        rows = search(query, docs, limit, stage=STAGE)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
