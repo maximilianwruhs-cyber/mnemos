@@ -9,9 +9,12 @@ cosine was ~9x slower than the claimed budget. What survives that measurement
 is the part of the design needing no model: BM25 + graph expansion +
 deterministic reranking.
 
-NO DERIVED ARTIFACTS. The corpus is small enough to score at query time
-(44 notes / ~79 KB; whole-corpus read measured at 1.5 ms), so there is no index
-to build, invalidate, or leave behind. Files stay the database.
+OPTIONAL DERIVED INDEX. Lexical+graph recall stays the default and needs no
+index - files are the database. As of 2026-09-02 an optional, dormant semantic
+vector channel (see docs/VECTOR-ANCHOR-OPS.md) may maintain a derived, deletable
+.idx/ cache under the stage dir; it is rebuildable from Markdown and never a
+source of truth. With no index / RECALL_VEC=0 / numpy absent, recall is
+byte-identical to lexical-only.
 
 SCORING
     S(d,q) = 0.45*L + 0.25*G + 0.10*R + 0.20*I
@@ -338,12 +341,13 @@ def _snippet(text, qt, width=110):
 def render(rows, query):
     out = ["=" * 78, f"RECALL  query: {query}", "=" * 78]
     if not rows:
-        out.append("  no note matched lexically, through the link graph, or by vector")
+        out.append("  no note matched lexically or through the link graph")
     for i, r in enumerate(rows, 1):
         out.append(f"{i}. [{r['score']:.3f}] {r['title']}")
         out.append(f"   {r['path']}")
+        vec = f"vec={r['vec']:.2f} " if "vec" in r else ""
         out.append(
-            f"   route={r['route']}  lex={r['lex']:.2f} vec={r.get('vec', 0.0):.2f} "
+            f"   route={r['route']}  lex={r['lex']:.2f} {vec}"
             f"graph={r['graph']:.2f} rec={r['rec']:.2f} sal={r['sal']:.2f}"
         )
         if r["snippet"]:

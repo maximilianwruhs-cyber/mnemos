@@ -70,6 +70,17 @@ def _embed_text_for(doc):
     return f'{doc["title"]}\n{doc["text"]}'
 
 
+def _model_fingerprint() -> str:
+    h = hashlib.sha256()
+    for name in ("config.json", "modules.json"):
+        p = MODEL_DIR / name
+        if p.exists():
+            h.update(p.read_bytes())
+    st = (MODEL_DIR / "model.safetensors").stat()
+    h.update(f"{st.st_size}:{st.st_mtime_ns}".encode())
+    return h.hexdigest()
+
+
 def build(stage: str, docs=None) -> dict:
     import numpy as np
     if docs is None:
@@ -113,7 +124,8 @@ def build(stage: str, docs=None) -> dict:
     os.makedirs(d, exist_ok=True)
     out.tofile(bin_p)
     with open(meta_p, "w", encoding="utf-8") as f:
-        json.dump({"model": MODEL_DIR.name, "dim": dim, "count": len(keys),
+        json.dump({"model": MODEL_DIR.name, "model_hash": _model_fingerprint(),
+                   "dim": dim, "count": len(keys),
                    "keys": keys, "hashes": hashes}, f)
     return {"built": built, "reused": reused, "pruned": pruned}
 
@@ -128,6 +140,8 @@ def load(stage: str):
     with open(meta_p, encoding="utf-8") as f:
         meta = json.load(f)
     if meta.get("model") != MODEL_DIR.name:
+        return None
+    if meta.get("model_hash") != _model_fingerprint():
         return None
     keys, dim = meta["keys"], meta["dim"]
     mat = np.fromfile(bin_p, dtype="float32")

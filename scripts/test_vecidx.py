@@ -115,6 +115,25 @@ class IndexTests(unittest.TestCase):
             json.dump(meta, f)
         self.assertIsNone(vecidx.load(d))
 
+    def test_model_hash_mismatch_invalidates_index(self):
+        d = tempfile.mkdtemp(dir="/tmp"); self.addCleanup(lambda: shutil.rmtree(d, True))
+        vecidx.build(d, docs=self._docs())
+        self.assertIsNotNone(vecidx.load(d))
+        _, _, meta_p = vecidx._idx_paths(d)
+        with open(meta_p, encoding="utf-8") as f:
+            meta = json.load(f)
+        self.assertIn("model_hash", meta)
+        good = meta["model_hash"]
+        meta["model_hash"] = "0" * 64
+        with open(meta_p, "w", encoding="utf-8") as f:
+            json.dump(meta, f)
+        self.assertIsNone(vecidx.load(d))
+        meta["model_hash"] = good
+        with open(meta_p, "w", encoding="utf-8") as f:
+            json.dump(meta, f)
+        self.assertIsNotNone(vecidx.load(d))
+
+
 
 
 @unittest.skipUnless(vecidx.available(), "vector model not fetched (Task 8)")
