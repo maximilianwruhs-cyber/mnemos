@@ -50,6 +50,18 @@ HOP_DECAY = 0.5
 MAX_HOPS = 2
 MAX_SEEDS = 5
 DEFAULT_SALIENCE = 0.5
+VEC_WEIGHTS = {"lex": 0.30, "vec": 0.25, "graph": 0.25, "rec": 0.05, "sal": 0.15}
+VEC_ACTIVATE_N = 1000
+
+
+def _vec_enabled(count):
+    flag = os.environ.get("RECALL_VEC")
+    if flag == "1":
+        return True
+    if flag == "0":
+        return False
+    return count >= VEC_ACTIVATE_N
+
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.\-]*")
 MEMID_RE = re.compile(r"MEM-\d{4}-\d{4}")
@@ -257,7 +269,7 @@ def recency_scores(docs):
     return out
 
 
-def search(query, docs, limit=5):
+def search(query, docs, limit=5, stage=None):
     qt = tokens(query)
     if not qt:
         raise ValueError("query has no usable tokens")
@@ -265,20 +277,50 @@ def search(query, docs, limit=5):
     adj = build_edges(docs)
     gph = graph_scores(lex, adj)
     rec = recency_scores(docs)
+
+    vec_raw, vecn, use_vec = {}, {}, False
+    if stage is not None:
+        try:
+            import vecidx
+            if vecidx.available() and _vec_enabled(len(docs)):
+                loaded = vecidx.load(stage)
+                if loaded is not None:
+                    keys, mat = loaded
+                    present = [k for k in keys if k in docs]
+                    if present:
+                        idx = [keys.index(k) for k in present]
+                        vec_raw = vecidx.search_vectors(query, present, mat[idx])
+                        vecn = _normalise({k: max(0.0, v) for k, v in vec_raw.items()})
+                        use_vec = True
+        except Exception:
+            use_vec = False  # any failure => exact lexical fallback
+
+    if use_vec:
+        w = VEC_WEIGHTS
+    else:
+        w = {"lex": W_LEX, "vec": 0.0, "graph": W_GRAPH, "rec": W_REC, "sal": W_SAL}
+
     rows = []
     for did, d in docs.items():
         g = gph.get(did, 0.0)
-        total = (W_LEX * lex[did] + W_GRAPH * g
-                 + W_REC * rec[did] + W_SAL * d["salience"])
-        rows.append({
+        v = vecn.get(did, 0.0)
+        total = (w["lex"] * lex[did] + w["vec"] * v + w["graph"] * g
+                 + w["rec"] * rec[did] + w["sal"] * d["salience"])
+        row = {
             "id": did, "path": d["path"], "title": d["title"],
             "score": total, "lex": lex[did], "graph": g,
             "rec": rec[did], "sal": d["salience"],
-            "route": "lexical" if lex[did] > 0 else ("graph" if g > 0 else "-"),
+            "route": "lexical" if lex[did] > 0 else (
+                "graph" if g > 0 else ("vector" if v > 0 else "-")),
             "snippet": _snippet(d["text"], qt),
-        })
+        }
+        if use_vec:
+            row["vec"] = vec_raw.get(did, 0.0)
+        rows.append(row)
     rows.sort(key=lambda r: (-r["score"], r["id"]))
-    return [r for r in rows if r["lex"] > 0 or r["graph"] > 0][:limit]
+    keep = [r for r in rows if r["lex"] > 0 or r["graph"] > 0
+            or (use_vec and r.get("vec", 0.0) >= vecidx.VEC_FLOOR)]
+    return keep[:limit]
 
 
 def _snippet(text, qt, width=110):

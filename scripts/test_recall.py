@@ -113,6 +113,25 @@ class RecallTests(unittest.TestCase):
     def test_selftest_entrypoint_passes(self):
         self.assertEqual(recall.selftest(), 0)
 
+    def test_search_without_stage_is_unchanged(self):
+        docs = self.corpus({"a.md": "# a\nwidget widget common\n",
+                            "b.md": "# b\ncommon common common\n"})
+        rows = recall.search("widget", docs)
+        self.assertTrue(rows[0]["path"].endswith("a.md"))
+        self.assertNotIn("vec", rows[0])  # legacy shape untouched when stage is None
+
+    def test_vec_disabled_env_forces_lexical(self):
+        import os
+        os.environ["RECALL_VEC"] = "0"
+        self.addCleanup(lambda: os.environ.pop("RECALL_VEC", None))
+        self.assertFalse(recall._vec_enabled(100000))
+
+    def test_vec_activation_threshold(self):
+        import os
+        os.environ.pop("RECALL_VEC", None)
+        self.assertFalse(recall._vec_enabled(10))
+        self.assertTrue(recall._vec_enabled(recall.VEC_ACTIVATE_N))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
