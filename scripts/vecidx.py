@@ -10,6 +10,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import warnings
 from pathlib import Path
 
 MODEL_DIR = Path(__file__).resolve().parent / "vectors" / "potion-base-8M"
@@ -34,7 +35,10 @@ def _load_model():
     global _MODEL
     if _MODEL is None:
         from model2vec import StaticModel
-        _MODEL = StaticModel.from_pretrained(str(MODEL_DIR))
+        # model2vec opens config.json without closing; silence its ResourceWarning
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ResourceWarning)
+            _MODEL = StaticModel.from_pretrained(str(MODEL_DIR))
     return _MODEL
 
 
@@ -77,7 +81,8 @@ def build(stage: str, docs=None) -> dict:
     if loaded is not None:
         prev_keys, prev_mat = loaded
         _, _, meta_p = _idx_paths(stage)
-        prev_hashes = json.load(open(meta_p, encoding="utf-8")).get("hashes", {})
+        with open(meta_p, encoding="utf-8") as f:
+            prev_hashes = json.load(f).get("hashes", {})
     prev_row = {k: i for i, k in enumerate(prev_keys)}
 
     keys = sorted(docs)
@@ -101,9 +106,9 @@ def build(stage: str, docs=None) -> dict:
     d, bin_p, meta_p = _idx_paths(stage)
     os.makedirs(d, exist_ok=True)
     out.tofile(bin_p)
-    json.dump({"model": MODEL_DIR.name, "dim": dim, "count": len(keys),
-               "keys": keys, "hashes": hashes},
-              open(meta_p, "w", encoding="utf-8"))
+    with open(meta_p, "w", encoding="utf-8") as f:
+        json.dump({"model": MODEL_DIR.name, "dim": dim, "count": len(keys),
+                   "keys": keys, "hashes": hashes}, f)
     return {"built": built, "reused": reused, "pruned": pruned}
 
 
@@ -114,19 +119,44 @@ def load(stage: str):
     _, bin_p, meta_p = _idx_paths(stage)
     if not (os.path.exists(bin_p) and os.path.exists(meta_p)):
         return None
-    meta = json.load(open(meta_p, encoding="utf-8"))
+    with open(meta_p, encoding="utf-8") as f:
+        meta = json.load(f)
     keys, dim = meta["keys"], meta["dim"]
     mat = np.fromfile(bin_p, dtype="float32")
     mat = mat.reshape(len(keys), dim) if keys and dim else np.zeros((0, dim or 0), "float32")
     return keys, mat
 
+
 VEC_FLOOR = 0.35
+VEC_PREFILTER_N = 10000
+
+
+def pack_bq(matrix):
+    import numpy as np
+    bits = (np.asarray(matrix, dtype="float32") >= 0.0).astype("uint8")
+    return np.packbits(bits, axis=1)
+
+
+def bq_prefilter(query_bits, doc_bits, k: int):
+    import numpy as np
+    x = np.bitwise_xor(doc_bits, query_bits[None, :])
+    ham = np.unpackbits(x, axis=1).sum(axis=1)
+    return list(np.argsort(ham, kind="stable")[:k])
 
 
 def search_vectors(query, keys, matrix, floor: float = VEC_FLOOR):
     if not keys or matrix is None or matrix.size == 0:
         return {}
+    import numpy as np
     q = embed_query(query)
-    sims = matrix @ q
-    return {keys[i]: float(sims[i]) for i in range(len(keys)) if float(sims[i]) >= floor}
-
+    if len(keys) > VEC_PREFILTER_N:
+        qbits = pack_bq(q[None, :])[0]
+        cand = bq_prefilter(qbits, pack_bq(matrix), k=max(50, floor and 50))
+    else:
+        cand = range(len(keys))
+    out = {}
+    for i in cand:
+        c = float(matrix[i] @ q)          # float rescore is always the final score
+        if c >= floor:
+            out[keys[i]] = c
+    return out

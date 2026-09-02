@@ -95,5 +95,19 @@ class SearchTests(unittest.TestCase):
         self.assertNotIn("/unrel", [k for k, v in hits.items() if v >= 0.5])
 
 
+@unittest.skipUnless(vecidx.available(), "vector model not fetched (Task 8)")
+class BQTests(unittest.TestCase):
+    def test_prefilter_keeps_the_true_neighbour(self):
+        import numpy as np
+        texts = ["no outbound network sockets oserror"] + \
+                [f"unrelated filler topic number {i}" for i in range(20)]
+        mat = vecidx.embed_texts(texts)
+        qbits = vecidx.pack_bq(vecidx.embed_query("cannot reach internet")[None, :])[0]
+        dbits = vecidx.pack_bq(mat)
+        keep = vecidx.bq_prefilter(qbits, dbits, k=5)
+        self.assertIn(0, keep)  # the true neighbour survives the coarse pass
+        self.assertEqual(len(keep), 5)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
