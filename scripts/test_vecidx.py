@@ -81,5 +81,19 @@ class IndexTests(unittest.TestCase):
         self.assertIsNone(vecidx.load(d))
 
 
+@unittest.skipUnless(vecidx.available(), "vector model not fetched (Task 8)")
+class SearchTests(unittest.TestCase):
+    def test_floor_excludes_unrelated_and_keeps_related(self):
+        keys = ["/rel", "/unrel"]
+        mat = vecidx.embed_texts([
+            "no outbound network; sockets raise OSError",
+            "coffee machine broken on floor three",
+        ])
+        hits = vecidx.search_vectors("cannot reach the internet", keys, mat, floor=0.2)
+        self.assertIn("/rel", hits)
+        self.assertGreaterEqual(hits["/rel"], 0.2)
+        self.assertNotIn("/unrel", [k for k, v in hits.items() if v >= 0.5])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

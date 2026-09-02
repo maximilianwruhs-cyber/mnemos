@@ -119,3 +119,14 @@ def load(stage: str):
     mat = np.fromfile(bin_p, dtype="float32")
     mat = mat.reshape(len(keys), dim) if keys and dim else np.zeros((0, dim or 0), "float32")
     return keys, mat
+
+VEC_FLOOR = 0.35
+
+
+def search_vectors(query, keys, matrix, floor: float = VEC_FLOOR):
+    if not keys or matrix is None or matrix.size == 0:
+        return {}
+    q = embed_query(query)
+    sims = matrix @ q
+    return {keys[i]: float(sims[i]) for i in range(len(keys)) if float(sims[i]) >= floor}
+
