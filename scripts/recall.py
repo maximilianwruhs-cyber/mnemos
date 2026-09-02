@@ -286,12 +286,14 @@ def search(query, docs, limit=5, stage=None):
                 loaded = vecidx.load(stage)
                 if loaded is not None:
                     keys, mat = loaded
-                    present = [k for k in keys if k in docs]
-                    if present:
-                        idx = [keys.index(k) for k in present]
+                    pairs = [(i, k) for i, k in enumerate(keys) if k in docs]
+                    if pairs:
+                        idx = [i for i, _ in pairs]
+                        present = [k for _, k in pairs]
                         vec_raw = vecidx.search_vectors(query, present, mat[idx])
-                        vecn = _normalise({k: max(0.0, v) for k, v in vec_raw.items()})
-                        use_vec = True
+                        if vec_raw:
+                            vecn = _normalise({k: max(0.0, v) for k, v in vec_raw.items()})
+                            use_vec = True
         except Exception:
             use_vec = False  # any failure => exact lexical fallback
 
@@ -336,12 +338,14 @@ def _snippet(text, qt, width=110):
 def render(rows, query):
     out = ["=" * 78, f"RECALL  query: {query}", "=" * 78]
     if not rows:
-        out.append("  no note matched lexically or through the link graph")
+        out.append("  no note matched lexically, through the link graph, or by vector")
     for i, r in enumerate(rows, 1):
         out.append(f"{i}. [{r['score']:.3f}] {r['title']}")
         out.append(f"   {r['path']}")
-        out.append(f"   route={r['route']}  lex={r['lex']:.2f} "
-                   f"graph={r['graph']:.2f} rec={r['rec']:.2f} sal={r['sal']:.2f}")
+        out.append(
+            f"   route={r['route']}  lex={r['lex']:.2f} vec={r.get('vec', 0.0):.2f} "
+            f"graph={r['graph']:.2f} rec={r['rec']:.2f} sal={r['sal']:.2f}"
+        )
         if r["snippet"]:
             out.append(f"   > {r['snippet']}")
     out.append("=" * 78)

@@ -134,8 +134,17 @@ class RecallTests(unittest.TestCase):
 
     def test_hybrid_surfaces_paraphrase_only_note(self):
         import os, importlib.util, sys, shutil, json, tempfile
-        vspec = importlib.util.spec_from_file_location("vecidx", Path("/tmp/vecidx.py"))
-        vecidx = importlib.util.module_from_spec(vspec); sys.modules["vecidx"] = vecidx
+        prev = sys.modules.get("vecidx")
+        vspec = importlib.util.spec_from_file_location(
+            "vecidx", Path(__file__).resolve().with_name("vecidx.py"))
+        vecidx = importlib.util.module_from_spec(vspec)
+        sys.modules["vecidx"] = vecidx
+        def _restore_vecidx():
+            if prev is None:
+                sys.modules.pop("vecidx", None)
+            else:
+                sys.modules["vecidx"] = prev
+        self.addCleanup(_restore_vecidx)
         vspec.loader.exec_module(vecidx)
         if not vecidx.available():
             self.skipTest("vector model not fetched (Task 8)")
@@ -157,6 +166,50 @@ class RecallTests(unittest.TestCase):
         hits = recall.search("cannot reach the internet", docs, stage=work)
         self.assertTrue(hits and hits[0]["path"] == "/Memory/net.md", hits)
         self.assertGreater(hits[0]["vec"], 0.0)
+
+    def test_empty_vec_hits_preserve_lexical_order(self):
+        """Index present + RECALL_VEC=1 but no cosine above floor → same as stage=None."""
+        import os, importlib.util, sys, shutil, json, tempfile
+        prev = sys.modules.get("vecidx")
+        vspec = importlib.util.spec_from_file_location(
+            "vecidx", Path(__file__).resolve().with_name("vecidx.py"))
+        vecidx = importlib.util.module_from_spec(vspec)
+        sys.modules["vecidx"] = vecidx
+        def _restore_vecidx():
+            if prev is None:
+                sys.modules.pop("vecidx", None)
+            else:
+                sys.modules["vecidx"] = prev
+        self.addCleanup(_restore_vecidx)
+        vspec.loader.exec_module(vecidx)
+        if not vecidx.available():
+            self.skipTest("vector model not fetched (Task 8)")
+        work = tempfile.mkdtemp(prefix="emptyvec_", dir="/tmp")
+        self.addCleanup(lambda: shutil.rmtree(work, ignore_errors=True))
+        files = {
+            "a.md": "# a\nwidget widget common\n",
+            "b.md": "# b\ncommon common common\n",
+            "c.md": "# c\nunrelated filler text about coffee machines\n",
+        }
+        for n, b in files.items():
+            Path(work, n).write_text(b, encoding="utf-8")
+        Path(work, "_manifest.json").write_text(
+            json.dumps({n: f"/Memory/{n}" for n in files}), encoding="utf-8")
+        docs = recall.build_corpus(work)
+        vecidx.build(work, docs=docs)
+        # Force zero above-floor hits: search_vectors only returns cosines >= VEC_FLOOR;
+        # empty dict is the observed outcome for non-matching paraphrases and is what
+        # must leave blend weights at the legacy W_* set (exact-match non-regression).
+        vecidx.search_vectors = lambda *a, **k: {}
+        os.environ["RECALL_VEC"] = "1"
+        self.addCleanup(lambda: os.environ.pop("RECALL_VEC", None))
+        base = recall.search("widget", docs)
+        hybrid = recall.search("widget", docs, stage=work)
+        self.assertEqual([r["path"] for r in base], [r["path"] for r in hybrid])
+        self.assertEqual([r["id"] for r in base], [r["id"] for r in hybrid])
+        for r in hybrid:
+            self.assertNotIn("vec", r)
+
 
 
 if __name__ == "__main__":
