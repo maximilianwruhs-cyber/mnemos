@@ -92,16 +92,22 @@ def build(stage: str, docs=None) -> dict:
     reused = len(keys) - built
     pruned = len([k for k in prev_keys if k not in docs])
 
-    dim = (prev_mat.shape[1] if prev_mat is not None and prev_mat.size
-           else embed_query(_embed_text_for(docs[keys[0]])).shape[0]) if keys else 0
-    out = np.zeros((len(keys), dim), dtype="float32") if keys else np.zeros((0, 0), "float32")
+    fresh = set(to_embed)
     new_vecs = embed_texts([_embed_text_for(docs[k]) for k in to_embed]) if to_embed else None
+    if new_vecs is not None:
+        dim = int(new_vecs.shape[1])
+    elif prev_mat is not None and prev_mat.size:
+        dim = int(prev_mat.shape[1])
+    else:
+        dim = 0
+    out = np.zeros((len(keys), dim), dtype="float32") if keys else np.zeros((0, 0), "float32")
     ni = 0
     for i, k in enumerate(keys):
-        if k in to_embed:
+        if k in fresh:
             out[i] = new_vecs[ni]; ni += 1
         else:
             out[i] = prev_mat[prev_row[k]]
+
 
     d, bin_p, meta_p = _idx_paths(stage)
     os.makedirs(d, exist_ok=True)
@@ -121,14 +127,19 @@ def load(stage: str):
         return None
     with open(meta_p, encoding="utf-8") as f:
         meta = json.load(f)
+    if meta.get("model") != MODEL_DIR.name:
+        return None
     keys, dim = meta["keys"], meta["dim"]
     mat = np.fromfile(bin_p, dtype="float32")
+    if mat.size != len(keys) * dim:
+        return None
     mat = mat.reshape(len(keys), dim) if keys and dim else np.zeros((0, dim or 0), "float32")
     return keys, mat
 
 
 VEC_FLOOR = 0.35
 VEC_PREFILTER_N = 10000
+VEC_PREFILTER_K = 50
 
 
 def pack_bq(matrix):
@@ -147,11 +158,10 @@ def bq_prefilter(query_bits, doc_bits, k: int):
 def search_vectors(query, keys, matrix, floor: float = VEC_FLOOR):
     if not keys or matrix is None or matrix.size == 0:
         return {}
-    import numpy as np
     q = embed_query(query)
     if len(keys) > VEC_PREFILTER_N:
         qbits = pack_bq(q[None, :])[0]
-        cand = bq_prefilter(qbits, pack_bq(matrix), k=max(50, floor and 50))
+        cand = bq_prefilter(qbits, pack_bq(matrix), k=VEC_PREFILTER_K)
     else:
         cand = range(len(keys))
     out = {}

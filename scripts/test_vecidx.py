@@ -2,8 +2,8 @@
 import importlib.util, sys
 from pathlib import Path
 import unittest
-import math
 import tempfile, json, shutil
+
 
 MODULE = Path(__file__).with_name("vecidx.py")
 spec = importlib.util.spec_from_file_location("vecidx", MODULE)
@@ -79,6 +79,42 @@ class IndexTests(unittest.TestCase):
     def test_load_missing_index_returns_none(self):
         d = tempfile.mkdtemp(dir="/tmp"); self.addCleanup(lambda: shutil.rmtree(d, True))
         self.assertIsNone(vecidx.load(d))
+
+    def test_torn_index_returns_none_and_build_self_heals(self):
+        import os
+        import numpy as np
+        d = tempfile.mkdtemp(dir="/tmp"); self.addCleanup(lambda: shutil.rmtree(d, True))
+        idx_d, bin_p, meta_p = vecidx._idx_paths(d)
+        os.makedirs(idx_d, exist_ok=True)
+        # 1-row float32 bin under a 2-key meta (size mismatch)
+        dim = 8
+        np.zeros((1, dim), dtype="float32").tofile(bin_p)
+        with open(meta_p, "w", encoding="utf-8") as f:
+            json.dump({
+                "model": vecidx.MODEL_DIR.name,
+                "dim": dim,
+                "count": 2,
+                "keys": ["/Memory/a.md", "/Memory/b.md"],
+                "hashes": {},
+            }, f)
+        self.assertIsNone(vecidx.load(d))
+        stats = vecidx.build(d, docs=self._docs())
+        self.assertEqual(stats["built"], 2)
+        keys, mat = vecidx.load(d)
+        self.assertEqual(set(keys), {"/Memory/a.md", "/Memory/b.md"})
+        self.assertEqual(mat.shape[0], 2)
+
+    def test_foreign_model_index_returns_none(self):
+        d = tempfile.mkdtemp(dir="/tmp"); self.addCleanup(lambda: shutil.rmtree(d, True))
+        vecidx.build(d, docs=self._docs())
+        _, _, meta_p = vecidx._idx_paths(d)
+        with open(meta_p, encoding="utf-8") as f:
+            meta = json.load(f)
+        meta["model"] = "not-the-current-model"
+        with open(meta_p, "w", encoding="utf-8") as f:
+            json.dump(meta, f)
+        self.assertIsNone(vecidx.load(d))
+
 
 
 @unittest.skipUnless(vecidx.available(), "vector model not fetched (Task 8)")
