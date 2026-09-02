@@ -175,7 +175,7 @@ def search_vectors(query, keys, matrix, floor: float = VEC_FLOOR):
 def main(argv=None):
     import sys
     argv = argv if argv is not None else sys.argv[1:]
-    if len(argv) >= 2 and argv[0] == "build":
+    if len(argv) == 2 and argv[0] == "build":
         if not available():
             print("vector extra unavailable (need numpy+model2vec+model dir)", file=sys.stderr)
             return 2
