@@ -1,35 +1,312 @@
 #!/usr/bin/env python3
-"""Atomically create a graph-safe L3 note and matching L2 stub in a local workspace."""
+"""Atomically create graph-safe notes and append Evidence records."""
 from __future__ import annotations
-import argparse,os,re,tempfile
+
+import argparse
+import json
+import os
+import re
+import sys
+import tempfile
+from datetime import date, datetime
 from pathlib import Path
 
-def create(memory:Path,root:Path,nid:str,title:str,category:str,body:str):
- text=memory.read_text()
- if nid in text: raise ValueError(f"ID already exists: {nid}")
- if not re.fullmatch(r'MEM-\d{4}-\d{4}',nid): raise ValueError('invalid MEM ID')
- if category not in {'context','lessons','decisions','preferences'}: raise ValueError('invalid category')
- slug=re.sub(r'[^a-z0-9]+','-',title.lower()).strip('-')
- rel=f"Memory/{category}/{nid}-{slug}.md"; target=root/rel
- if target.exists(): raise ValueError(f"target exists: {rel}")
- heading=f"# {nid} — {title}\n\n"; note=heading+body.rstrip()+"\n"
- marker='\n## 3. Ephemeral Scratchpad'
- if marker not in text: raise ValueError('Atomic Notes insertion marker missing')
- stub=f"\n### [{nid}] {title} — demoted to L3\n\n- **Stub.** Full note: `{rel}`\n"
- updated=text.replace(marker,stub+marker,1)
- # prepare both files before replacing either; rollback MEMORY if note replace fails
- target.parent.mkdir(parents=True,exist_ok=True)
- old=text
- with tempfile.NamedTemporaryFile('w',delete=False,dir=memory.parent,encoding='utf-8') as f: f.write(updated); memtmp=Path(f.name)
- with tempfile.NamedTemporaryFile('w',delete=False,dir=target.parent,encoding='utf-8') as f: f.write(note); notetmp=Path(f.name)
- try:
-  os.replace(notetmp,target); os.replace(memtmp,memory)
- except Exception:
-  if target.exists(): target.unlink()
-  memory.write_text(old); raise
- return rel
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import evidence  # noqa: E402
+import mnemos  # noqa: E402
+import snapshot  # noqa: E402
 
-def main(argv=None):
- p=argparse.ArgumentParser(); p.add_argument('--memory',required=True); p.add_argument('--root',required=True); p.add_argument('--id',required=True); p.add_argument('--title',required=True); p.add_argument('--category',required=True); p.add_argument('--body-file',required=True); a=p.parse_args(argv)
- print(create(Path(a.memory),Path(a.root),a.id,a.title,a.category,Path(a.body_file).read_text()))
-if __name__=='__main__': main()
+CATEGORIES = frozenset({"context", "lessons", "decisions", "preferences"})
+ID_RE = re.compile(r"MEM-\d{4}-\d{4}")
+L3_HEADING_RE = re.compile(r"^#\s+(MEM-\d{4}-\d{4})\b", re.M)
+MARKER = "\n## 3. Ephemeral Scratchpad"
+
+
+def _slug(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+
+
+def _validate_id(nid: str) -> None:
+    if not re.fullmatch(r"MEM-\d{4}-\d{4}", nid):
+        raise ValueError("invalid MEM ID")
+
+
+def _validate_category(category: str) -> None:
+    if category not in CATEGORIES:
+        raise ValueError("invalid category")
+
+
+def _check_memory_caps(text: str) -> None:
+    limits = mnemos.CAPS["MEMORY.md"]
+    lines = len(text.splitlines())
+    size = len(text.encode("utf-8"))
+    if lines > limits["lines"]:
+        raise ValueError(
+            f"MEMORY.md exceeds line cap {limits['lines']} ({lines} lines)")
+    if size > limits["bytes"]:
+        raise ValueError(
+            f"MEMORY.md exceeds byte cap {limits['bytes']} ({size} bytes)")
+
+
+def _atomic_replace(path: Path, text: str) -> None:
+    """Write UTF-8 text via a same-directory temp file, then os.replace."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent), prefix=".tmp-memory-note-", suffix=".md")
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def _prepare_temp(directory: Path, text: str) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(directory), prefix=".tmp-memory-note-", suffix=".md")
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except Exception:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
+        raise
+    return tmp
+
+
+def _pair_replace(
+    primary: Path,
+    primary_text: str,
+    secondary: Path,
+    secondary_text: str,
+    secondary_restore: bytes,
+) -> None:
+    """Replace primary then secondary; roll back primary on secondary failure."""
+    primary = Path(primary)
+    secondary = Path(secondary)
+    primary_tmp = _prepare_temp(primary.parent, primary_text)
+    secondary_tmp = _prepare_temp(secondary.parent, secondary_text)
+    primary_committed = False
+    try:
+        os.replace(primary_tmp, primary)
+        primary_committed = True
+        primary_tmp = Path()  # consumed
+        os.replace(secondary_tmp, secondary)
+        secondary_tmp = Path()  # consumed
+    except Exception:
+        if primary_committed and primary.exists():
+            try:
+                primary.unlink()
+            except OSError:
+                pass
+        try:
+            secondary.write_bytes(secondary_restore)
+        except OSError:
+            pass
+        raise
+    finally:
+        for tmp in (primary_tmp, secondary_tmp):
+            if tmp and tmp.exists():
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+
+
+def _l3_rel(nid: str, title: str, category: str) -> str:
+    slug = _slug(title) or "note"
+    return f"Memory/{category}/{nid}-{slug}.md"
+
+
+def _stub_block(nid: str, title: str, confidence: str, directive: str,
+                rel: str) -> str:
+    return (
+        f"\n### [{nid}] {title} — demoted to L3\n\n"
+        f"- **Stub.** {confidence}. {directive} Full note: `{rel}`\n"
+    )
+
+
+def _refuse_archive(root: Path, target: Path) -> None:
+    root_r = root.resolve()
+    try:
+        parts = target.resolve().relative_to(root_r).parts
+    except ValueError as exc:
+        raise ValueError(f"path escapes base: {target}") from exc
+    if "_archive" in parts:
+        raise ValueError("archive paths are not mutable")
+
+
+def create(
+    memory: Path,
+    root: Path,
+    nid: str,
+    title: str,
+    category: str,
+    body: str,
+    today: date,
+) -> str:
+    """Create an L3 full note and matching L2 stub under root."""
+    memory = Path(memory)
+    root = Path(root)
+    _validate_id(nid)
+    _validate_category(category)
+    if memory.resolve() != (root / "MEMORY.md").resolve():
+        raise ValueError("memory path must be root/MEMORY.md")
+
+    text = memory.read_text(encoding="utf-8")
+    notes = mnemos.parse_notes(text)
+    if any(note["id"] == nid for note in notes):
+        raise ValueError(f"ID already exists: {nid}")
+
+    rel = _l3_rel(nid, title, category)
+    target = root / rel
+    if target.exists():
+        raise ValueError(f"target exists: {rel}")
+
+    candidate = f"### [{nid}] {title}\n\n{body.rstrip()}\n"
+    probe = text.rstrip() + "\n\n" + candidate
+    probe_notes = mnemos.parse_notes(probe)
+    findings = mnemos.check_notes(probe_notes, today)
+    candidate_fails = [
+        finding for finding in findings
+        if finding.level == "FAIL" and finding.subject == nid
+    ]
+    if candidate_fails:
+        raise ValueError("; ".join(item.detail for item in candidate_fails))
+
+    fields = next(note["fields"] for note in probe_notes if note["id"] == nid)
+    confidence = fields.get("Confidence", "").strip()
+    directive = fields.get("Directive", "").strip()
+    if not confidence or not directive:
+        raise ValueError("validated note missing Confidence or Directive")
+
+    heading = f"# {nid} — {title}\n\n"
+    note_text = heading + body.rstrip() + "\n"
+    if MARKER not in text:
+        raise ValueError("Atomic Notes insertion marker missing")
+    stub = _stub_block(nid, title, confidence, directive, rel)
+    updated_memory = text.replace(MARKER, stub + MARKER, 1)
+    _check_memory_caps(updated_memory)
+
+    original_memory = memory.read_bytes()
+    _pair_replace(target, note_text, memory, updated_memory, original_memory)
+    return rel
+
+
+def append_evidence(
+    root: Path,
+    relative_path: str,
+    nid: str,
+    item: dict[str, str],
+    today: date,
+) -> None:
+    """Append one Evidence record to an L2 note body or L3 full note."""
+    root = Path(root)
+    _validate_id(nid)
+    target = snapshot.resolve_inside(root, relative_path)
+    _refuse_archive(root, target)
+    if not target.is_file():
+        raise ValueError(f"missing note path: {relative_path}")
+
+    rel_posix = target.resolve().relative_to(root.resolve()).as_posix()
+    if rel_posix == "MEMORY.md" or target.resolve() == (root / "MEMORY.md").resolve():
+        text = target.read_text(encoding="utf-8")
+        notes = {note["id"]: note for note in mnemos.parse_notes(text)}
+        note = notes.get(nid)
+        if note is None:
+            raise ValueError(f"note not found: {nid}")
+        if note["stub"]:
+            raise ValueError("cannot append evidence to a stub")
+        updated_body = evidence.append(note["body"], item, today)
+        updated = (
+            text[: note["body_start"]]
+            + updated_body
+            + text[note["scan_end"] :]
+        )
+        _check_memory_caps(updated)
+        _atomic_replace(target, updated)
+        return
+
+    text = target.read_text(encoding="utf-8")
+    match = L3_HEADING_RE.search(text)
+    if match is None:
+        raise ValueError("L3 note missing MEM heading")
+    # First heading in the file must declare nid.
+    first = re.search(r"^#\s+.+$", text, re.M)
+    if first is None or not L3_HEADING_RE.match(first.group(0)):
+        raise ValueError("L3 note missing MEM heading")
+    declared = L3_HEADING_RE.match(first.group(0)).group(1)
+    if declared != nid:
+        raise ValueError(f"L3 heading ID does not match {nid}")
+    updated = evidence.append(text, item, today)
+    _atomic_replace(target, updated)
+
+
+def _parse_today(value: str) -> date:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"invalid today date: {value}") from exc
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Create L3 notes or append Evidence records.")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    create_p = sub.add_parser("create", help="Create L3 note + L2 stub")
+    create_p.add_argument("--memory", required=True, type=Path)
+    create_p.add_argument("--root", required=True, type=Path)
+    create_p.add_argument("--id", required=True)
+    create_p.add_argument("--title", required=True)
+    create_p.add_argument("--category", required=True)
+    create_p.add_argument("--body-file", required=True, type=Path)
+    create_p.add_argument("--today", required=True, type=_parse_today)
+
+    append_p = sub.add_parser(
+        "append-evidence", help="Append one Evidence record")
+    append_p.add_argument("--root", required=True, type=Path)
+    append_p.add_argument("--path", required=True)
+    append_p.add_argument("--id", required=True)
+    append_p.add_argument("--evidence-json", required=True)
+    append_p.add_argument("--today", required=True, type=_parse_today)
+
+    args = parser.parse_args(argv)
+    if args.command == "create":
+        body = args.body_file.read_text(encoding="utf-8")
+        rel = create(
+            args.memory, args.root, args.id, args.title, args.category,
+            body, args.today)
+        print(rel)
+        return 0
+
+    item = json.loads(args.evidence_json)
+    if not isinstance(item, dict):
+        raise ValueError("evidence-json must decode to an object")
+    append_evidence(args.root, args.path, args.id, item, args.today)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception as exc:  # noqa: BLE001 - CLI boundary
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(1)

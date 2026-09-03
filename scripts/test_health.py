@@ -2,7 +2,21 @@
 """Regression tests for MNEMOS health-v2 support components."""
 from __future__ import annotations
 import importlib.util,tempfile,unittest
+from datetime import date
 from pathlib import Path
+
+TODAY=date(2026,9,3)
+VALID_BODY=(
+ "- **Type:** Gotcha · **Confidence:** VERIFIED · **Salience:** 0.80\n"
+ "- **Created:** 2026-09-03 · **Last-Access:** 2026-09-03 · **Freq:** 1\n"
+ "- **Tags:** #test #local\n"
+ "- **Links:**\n"
+ "- **Provenance:** Executed locally.\n"
+ "- **Observation:** The behavior was observed.\n"
+ "- **Directive:** Use the verified path.\n"
+ '- **Evidence:** {"date":"2026-09-02","stance":"SUPPORT",'
+ '"source":"health fixture","quote":"PASS"}\n'
+)
 
 def load(name):
  p=Path('/tmp')/name; s=importlib.util.spec_from_file_location(name,p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); return m
@@ -28,7 +42,7 @@ class HealthV2Tests(unittest.TestCase):
   text='# MEMORY.md\n\n## 2. Atomic Notes\n\n## 3. Ephemeral Scratchpad\n'
   with tempfile.TemporaryDirectory() as d:
    root=Path(d); mem=root/'MEMORY.md'; mem.write_text(text)
-   rel=note.create(mem,root,'MEM-2026-9999','Test Note','lessons','Body')
+   rel=note.create(mem,root,'MEM-2026-9999','Test Note','lessons',VALID_BODY,TODAY)
    self.assertIn('# MEM-2026-9999',(root/rel).read_text()); self.assertIn(rel,mem.read_text())
  def test_health_v2_contract_is_present(self):
   src=Path('/tmp/health.py').read_text()
