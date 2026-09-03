@@ -36,6 +36,19 @@ SECRET_PATTERNS = [
     re.compile(r"(?i)(?:api[_-]?key|client[_-]?secret|access[_-]?token)\s*[:=]\s*['\"]?[A-Za-z0-9_./+\-=]{16,}"),
 ]
 
+# Gitignored scaffolding (worktrees, SDD workspaces, caches) is never package
+# content; verify_kit inspects only real package files, matching a clean export.
+EXCLUDE_DIRS = {".git", ".superpowers", ".worktrees", "__pycache__",
+                ".idx", ".cache", "notes"}
+
+
+def package_files(pattern: str = "*"):
+    return sorted(
+        p for p in ROOT.rglob(pattern)
+        if p.is_file()
+        and not any(part in EXCLUDE_DIRS for part in p.relative_to(ROOT).parts)
+    )
+
 
 def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -68,7 +81,7 @@ def main() -> int:
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         entries = manifest.get("files", [])
-        actual = {p.relative_to(ROOT).as_posix() for p in ROOT.rglob("*") if p.is_file() and p.name not in {"MANIFEST.json", "SHA256SUMS.txt"}}
+        actual = {p.relative_to(ROOT).as_posix() for p in package_files() if p.name not in {"MANIFEST.json", "SHA256SUMS.txt"}}
         declared = {x["path"] for x in entries}
         if actual != declared:
             fail(f"manifest path mismatch: missing={sorted(actual-declared)}, extra={sorted(declared-actual)}", errors)
@@ -81,7 +94,7 @@ def main() -> int:
         if not any("checksum mismatch" in e for e in errors):
             ok("manifest sizes and SHA-256 digests match")
 
-    py_files = sorted(ROOT.rglob("*.py"))
+    py_files = package_files("*.py")
     for path in py_files:
         try:
             ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -90,7 +103,7 @@ def main() -> int:
     if not any("Python parse failure" in e for e in errors):
         ok(f"{len(py_files)} Python files parse")
 
-    for path in sorted(ROOT.rglob("*.json")):
+    for path in package_files("*.json"):
         try:
             json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
@@ -105,7 +118,7 @@ def main() -> int:
         "scripts/secretscan.py", "scripts/test_secretscan.py",
         "scripts/test_evidence.py",
     }
-    for path in sorted(p for p in ROOT.rglob("*") if p.is_file()):
+    for path in package_files():
         rel = path.relative_to(ROOT).as_posix()
         if rel in scanner_sources:
             continue
