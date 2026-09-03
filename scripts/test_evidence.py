@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import importlib.util
 import io
 import os
@@ -37,6 +38,7 @@ mnemos = load_module("mnemos.py")
 snapshot = load_module("snapshot.py")
 graphcheck = load_module("graphcheck.py")
 secretscan = load_module("secretscan.py")
+evidence_migrate = load_module("evidence_migrate.py")
 
 TODAY = date(2026, 9, 3)
 NOTE_WITH_SUPPORT = ('- **Evidence:** {"date":"2026-09-02","stance":"SUPPORT",'
@@ -1044,6 +1046,193 @@ class GraphCheckTests(unittest.TestCase):
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertIn("RC 0", run.stdout)
         self.assertNotIn("ModuleNotFoundError", run.stderr)
+
+MIG_FIELDS = ("- **Type:** Gotcha \u00b7 **Confidence:** HIGH\n"
+              "- **Links:**{links}\n- **Provenance:** local\n"
+              "- **Observation:** obs\n- **Directive:** dir\n")
+MIG_EV = {"date": "2026-09-02", "stance": "SUPPORT",
+          "source": "reopened source", "quote": "PASS"}
+
+
+def _mig_note(nid, title="Note", body="", links=""):
+    head = f"### [{nid}] {title}\n"
+    return head + MIG_FIELDS.format(links=links) + body
+
+
+def _mig_memory(*notes):
+    return ("# MEMORY.md\n\n## 2. Atomic Notes\n\n" +
+            "".join(notes) + "\n## 3. Ephemeral Scratchpad\n")
+
+
+class MigrationPlannerTests(unittest.TestCase):
+    def _row(self, report, nid):
+        return next(r for r in report.rows if r.note_id == nid)
+
+    def test_valid_note_without_decision_is_ready_zero_delta(self):
+        mem = _mig_memory(_mig_note("MEM-2026-0001", body=NOTE_WITH_SUPPORT))
+        report = evidence_migrate.plan(mem, {}, {}, TODAY)
+        self.assertTrue(report.ready)
+        row = self._row(report, "MEM-2026-0001")
+        self.assertEqual((row.status, row.delta_bytes), ("READY", 0))
+
+    def test_add_projects_positive_delta_and_stays_ready(self):
+        mem = _mig_memory(_mig_note("MEM-2026-0002"))
+        decisions = {"MEM-2026-0002": {"action": "ADD", "evidence": MIG_EV}}
+        report = evidence_migrate.plan(mem, {}, decisions, TODAY)
+        self.assertTrue(report.ready)
+        row = self._row(report, "MEM-2026-0002")
+        self.assertEqual(row.status, "READY")
+        self.assertGreater(row.delta_bytes, 0)
+
+    def test_missing_evidence_without_decision_blocks_with_identity(self):
+        mem = _mig_memory(_mig_note("MEM-2026-0003"))
+        report = evidence_migrate.plan(mem, {}, {}, TODAY)
+        self.assertFalse(report.ready)
+        row = self._row(report, "MEM-2026-0003")
+        self.assertEqual(row.status, "BLOCKED")
+        self.assertEqual(row.path, "/MEMORY.md")
+        self.assertEqual(row.confidence, "HIGH")
+
+    def test_archive_l3_projects_deterministic_target_and_excludes_span(self):
+        note = _mig_note("MEM-2026-0004", body="- **Observation:** o\n")
+        mem = _mig_memory(note)
+        l3 = {"/Memory/lessons/MEM-2026-0005-x.md":
+              "# [MEM-2026-0005] X\n- **Observation:** o\n"}
+        decisions = {
+            "MEM-2026-0004": {"action": "ARCHIVE"},
+            "MEM-2026-0005": {"action": "ARCHIVE"},
+        }
+        report = evidence_migrate.plan(mem, l3, decisions, TODAY)
+        self.assertTrue(report.ready)
+        l2row = self._row(report, "MEM-2026-0004")
+        self.assertEqual(
+            l2row.target_path,
+            "Memory/_archive/evidence-migration/l2/MEM-2026-0004-note.md")
+        self.assertLess(l2row.delta_bytes, 0)
+        l3row = self._row(report, "MEM-2026-0005")
+        self.assertEqual(
+            l3row.target_path,
+            "Memory/_archive/evidence-migration/lessons/MEM-2026-0005-x.md")
+        # projected L2 no longer contains the archived note heading.
+        self.assertNotIn(str(report.projected_l2_bytes), ("",))
+        self.assertLess(report.projected_l2_bytes, len(mem.encode("utf-8")))
+
+    def test_archive_blocked_by_active_incoming_link(self):
+        linker = _mig_note("MEM-2026-0006", body=NOTE_WITH_SUPPORT,
+                           links=" [[MEM-2026-0007]]")
+        target = _mig_note("MEM-2026-0007", body="- **Observation:** o\n")
+        mem = _mig_memory(linker, target)
+        decisions = {"MEM-2026-0007": {"action": "ARCHIVE"}}
+        report = evidence_migrate.plan(mem, {}, decisions, TODAY)
+        self.assertFalse(report.ready)
+        row = self._row(report, "MEM-2026-0007")
+        self.assertEqual(row.status, "ARCHIVE")
+        self.assertIn("incoming link", row.detail)
+
+    def test_archive_blocked_by_l2_stub(self):
+        stub = ("### [MEM-2026-0008] Stubbed\n"
+                "- **Stub.** Full note: `Memory/lessons/MEM-2026-0009-x.md`\n\n")
+        mem = _mig_memory(stub)
+        l3 = {"/Memory/lessons/MEM-2026-0009-x.md":
+              "# [MEM-2026-0009] X\n- **Observation:** o\n"}
+        decisions = {"MEM-2026-0009": {"action": "ARCHIVE"}}
+        report = evidence_migrate.plan(mem, l3, decisions, TODAY)
+        self.assertFalse(report.ready)
+        self.assertEqual(self._row(report, "MEM-2026-0009").status, "ARCHIVE")
+
+    def test_malformed_existing_ledger_is_never_appended(self):
+        note = _mig_note("MEM-2026-0010", body="- **Evidence:** not json\n")
+        mem = _mig_memory(note)
+        decisions = {"MEM-2026-0010": {"action": "ADD", "evidence": MIG_EV}}
+        report = evidence_migrate.plan(mem, {}, decisions, TODAY)
+        self.assertFalse(report.ready)
+        self.assertIn("malformed", self._row(report, "MEM-2026-0010").detail)
+
+    def test_invalid_proposed_evidence_blocks(self):
+        mem = _mig_memory(_mig_note("MEM-2026-0011"))
+        bad = dict(MIG_EV, stance="MAYBE")
+        decisions = {"MEM-2026-0011": {"action": "ADD", "evidence": bad}}
+        report = evidence_migrate.plan(mem, {}, decisions, TODAY)
+        self.assertFalse(report.ready)
+        self.assertEqual(self._row(report, "MEM-2026-0011").status, "BLOCKED")
+
+    def test_stale_decision_on_valid_note_blocks(self):
+        mem = _mig_memory(_mig_note("MEM-2026-0012", body=NOTE_WITH_SUPPORT))
+        decisions = {"MEM-2026-0012": {"action": "ADD", "evidence": MIG_EV}}
+        report = evidence_migrate.plan(mem, {}, decisions, TODAY)
+        self.assertFalse(report.ready)
+        self.assertIn("stale", self._row(report, "MEM-2026-0012").detail)
+
+    def test_unknown_decision_id_blocks(self):
+        mem = _mig_memory(_mig_note("MEM-2026-0013", body=NOTE_WITH_SUPPORT))
+        decisions = {"MEM-2026-9999": {"action": "ADD", "evidence": MIG_EV}}
+        report = evidence_migrate.plan(mem, {}, decisions, TODAY)
+        self.assertFalse(report.ready)
+        self.assertEqual(self._row(report, "MEM-2026-9999").status, "BLOCKED")
+
+    def test_unsupported_action_blocks(self):
+        mem = _mig_memory(_mig_note("MEM-2026-0014"))
+        decisions = {"MEM-2026-0014": {"action": "DELETE"}}
+        report = evidence_migrate.plan(mem, {}, decisions, TODAY)
+        self.assertFalse(report.ready)
+        self.assertIn("unsupported", self._row(report, "MEM-2026-0014").detail)
+
+    def test_cap_overflow_reports_exact_values_and_blocks(self):
+        big = "- **Observation:** " + ("x" * 13000) + "\n"
+        mem = _mig_memory(_mig_note("MEM-2026-0015", body=NOTE_WITH_SUPPORT + big))
+        report = evidence_migrate.plan(mem, {}, {}, TODAY)
+        self.assertFalse(report.ready)
+        self.assertGreater(report.projected_l2_bytes, evidence_migrate.MAX_L2_BYTES)
+
+    def test_duplicate_active_self_id_blocks(self):
+        note = _mig_note("MEM-2026-0016", body=NOTE_WITH_SUPPORT)
+        mem = _mig_memory(note, note)
+        report = evidence_migrate.plan(mem, {}, {}, TODAY)
+        self.assertFalse(report.ready)
+        self.assertIn("duplicate", self._row(report, "MEM-2026-0016").detail)
+
+    def test_cli_is_immutable_and_deterministic(self):
+        work = Path(tempfile.mkdtemp())
+        mem = _mig_memory(_mig_note("MEM-2026-0017"))
+        (work / "MEMORY.md").write_text(mem, encoding="utf-8")
+        l3_name, l3_real = "l3a.md", "/Memory/lessons/MEM-2026-0018-x.md"
+        (work / l3_name).write_text(
+            "# [MEM-2026-0018] X\n- **Observation:** o\n", encoding="utf-8")
+        (work / "_manifest.json").write_text(
+            json.dumps({"MEMORY.md": "/MEMORY.md", l3_name: l3_real}),
+            encoding="utf-8")
+        (work / "dec.json").write_text(json.dumps({
+            "schema_version": 1,
+            "notes": {
+                "MEM-2026-0017": {"action": "ADD", "evidence": MIG_EV},
+                "MEM-2026-0018": {"action": "ADD", "evidence": MIG_EV},
+            }}), encoding="utf-8")
+
+        def digest():
+            h = hashlib.sha256()
+            for p in sorted(work.glob("*")):
+                if p.name.startswith("report"):
+                    continue
+                h.update(p.read_bytes())
+            return h.hexdigest()
+
+        script = Path(__file__).resolve().parent / "evidence_migrate.py"
+        args = ["--memory", str(work / "MEMORY.md"),
+                "--manifest", str(work / "_manifest.json"),
+                "--decisions", str(work / "dec.json"), "--today", "2026-09-03"]
+        before = digest()
+        r1 = subprocess.run([sys.executable, str(script), *args,
+                             "--output", str(work / "report.json")],
+                            capture_output=True, text=True)
+        r2 = subprocess.run([sys.executable, str(script), *args,
+                             "--output", str(work / "report2.json")],
+                            capture_output=True, text=True)
+        self.assertEqual(before, digest())
+        self.assertEqual(r1.returncode, 0, r1.stderr)
+        self.assertEqual((work / "report.json").read_bytes(),
+                         (work / "report2.json").read_bytes())
+        payload = json.loads((work / "report.json").read_text())
+        self.assertTrue(payload["ready"])
 
 
 
