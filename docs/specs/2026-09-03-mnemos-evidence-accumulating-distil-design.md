@@ -1,7 +1,7 @@
 # MNEMOS Evidence-Accumulating DISTIL — Design Spec
 
 **Date:** 2026-09-03
-**Status:** Approved for implementation planning (operator approved 2026-09-03; not yet implemented)
+**Status:** Implemented; target-runtime 12-suite verification pending (Windows-workstation focused + install verification passed 2026-09-03). Remaining external gate: run the full 12-suite `regression.json` and `verify_kit.py` to final `PASS` on the SiemensGPT/POSIX runtime, where the environment-specific snapshot/tick/evolution selftests pass.
 **Baseline:** canonical MNEMOS at `864e58c` (`mnemos.py` recommends DISTIL but does not execute it)
 **Operator decision:** evidence records are required on every active full note, not only after DISTIL
 **Grounded in:** `scripts/mnemos.py`, `scripts/memory_note.py`, `scripts/graphcheck.py`, `scripts/recall.py`, `docs/MEMORY-PROTOCOL.md`, and `docs/research/2026-09-02-hindsight-mnemosyne-vs-mnemos.md`
