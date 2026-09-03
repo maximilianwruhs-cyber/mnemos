@@ -190,6 +190,59 @@ class EvidenceSchemaTests(unittest.TestCase):
             )
         self.assertNotIn(token, str(ctx.exception))
 
+    def test_date_and_stance_secrets_are_not_echoed_in_findings(self):
+        token = "ghp_" + ("b" * 36)
+        cases = {
+            "date": (
+                '{"date":"' + token + '","stance":"SUPPORT",'
+                '"source":"probe","quote":"ok"}'
+            ),
+            "stance": (
+                '{"date":"2026-09-03","stance":"' + token + '",'
+                '"source":"probe","quote":"ok"}'
+            ),
+        }
+        for label, payload in cases.items():
+            with self.subTest(label=label):
+                report = evidence.inspect(f"- **Evidence:** {payload}\n", TODAY)
+                joined = " | ".join(f.detail for f in report.findings)
+                self.assertTrue(any(f.level == "FAIL" for f in report.findings))
+                self.assertNotIn(token, joined)
+                bad = {
+                    "date": "2026-09-03",
+                    "stance": "SUPPORT",
+                    "source": "probe",
+                    "quote": "ok",
+                }
+                bad[label] = token
+                with self.assertRaises(ValueError) as ctx:
+                    evidence.append(NOTE_WITH_SUPPORT, bad, TODAY)
+                self.assertNotIn(token, str(ctx.exception))
+
+    def test_append_rejects_unknown_keys_and_nonstring_values(self):
+        original = NOTE_WITH_SUPPORT
+        unknown = dict(SECOND_SUPPORT)
+        unknown["extra"] = "z"
+        with self.assertRaises(ValueError):
+            evidence.append(original, unknown, TODAY)
+        self.assertEqual(original, NOTE_WITH_SUPPORT)
+
+        nonstring = dict(SECOND_SUPPORT)
+        nonstring["quote"] = ["not", "a", "string"]
+        with self.assertRaises(ValueError):
+            evidence.append(original, nonstring, TODAY)
+        self.assertEqual(original, NOTE_WITH_SUPPORT)
+
+    def test_valid_challenge_emits_warn_even_with_coexisting_fail(self):
+        malformed = "- **Evidence:** {bad json}\n"
+        report = evidence.inspect(
+            NOTE_WITH_SUPPORT + CHALLENGE_LINE + malformed, TODAY)
+        levels = [f.level for f in report.findings]
+        self.assertIn("FAIL", levels)
+        self.assertIn("WARN", levels)
+        self.assertTrue(report.contested)
+        self.assertEqual((report.support, report.challenge), (1, 1))
+
     def test_runpy_resolves_secretscan_staged_next_to_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

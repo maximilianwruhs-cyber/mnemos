@@ -68,14 +68,14 @@ def _validate_values(values: dict[str, str], today: date) -> list[str]:
     try:
         observed = datetime.strptime(raw_date, "%Y-%m-%d").date()
     except ValueError:
-        errors.append(f"Evidence date is invalid: {raw_date!r}")
+        errors.append("Evidence date is invalid")
         observed = None
     if observed is not None and observed > today:
-        errors.append(f"Evidence date is in the future: {raw_date}")
+        errors.append("Evidence date is in the future")
 
     stance = values["stance"]
     if stance not in STANCES:
-        errors.append(f"Evidence stance is invalid: {stance!r}")
+        errors.append("Evidence stance is invalid")
 
     source = values["source"]
     quote = values["quote"]
@@ -97,6 +97,7 @@ def _validate_values(values: dict[str, str], today: date) -> list[str]:
             errors.append(_secret_detail(hit))
 
     return errors
+
 
 
 def _parse_payload(payload: str, today: date) -> tuple[EvidenceItem | None, list[str]]:
@@ -179,7 +180,7 @@ def inspect(text: str, today: date) -> EvidenceReport:
             "FAIL", "Evidence requires at least one SUPPORT record"))
 
     contested = challenge > 0
-    if contested and support > 0 and not any(f.level == "FAIL" for f in findings):
+    if contested:
         findings.append(EvidenceFinding("WARN", "Evidence is contested"))
 
     return EvidenceReport(
@@ -202,15 +203,14 @@ def append(text: str, item: dict[str, str], today: date) -> str:
     """Return ``text`` with one canonical Evidence line appended."""
     if not isinstance(item, dict):
         raise ValueError("Evidence candidate must be a mapping")
+    if set(item.keys()) != set(KEYS):
+        raise ValueError(
+            "Evidence object keys must be exactly date/stance/source/quote")
+    if any(not isinstance(item[key], str) for key in KEYS):
+        raise ValueError("Evidence field values must be strings")
     _candidate_newlines(item)
 
-    # Build a trimmed candidate for rendering when keys/types allow it.
-    if set(item.keys()) == set(KEYS) and all(isinstance(item[k], str) for k in KEYS):
-        candidate = {key: item[key].strip() for key in KEYS}
-    else:
-        # Fall through to inspect via best-effort rendering when possible.
-        candidate = {key: str(item.get(key, "")) for key in KEYS}
-
+    candidate = {key: item[key].strip() for key in KEYS}
     separator = "" if text.endswith("\n") else "\n"
     updated = text + separator + f"- **Evidence:** {_canonical(candidate)}\n"
     report = inspect(updated, today)
