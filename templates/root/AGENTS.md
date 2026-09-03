@@ -16,7 +16,7 @@
 |---|---|
 | Verify package | `python verify_kit.py` before installation |
 | Verify scripts | Run every suite in `autonomy/config/regression.json` |
-| Audit memory | `python scripts/mnemos.py` with explicit MEMORY, AGENTS, and index paths |
+| Audit memory | Stage `secretscan.py` beside `mnemos.py`; run `python scripts/mnemos.py` with explicit MEMORY, AGENTS, and index paths |
 | Check graph | Stage or expose every non-archive L3 note, then run `scripts/graphcheck.py` |
 | Health verdict | Build complete scope manifest and inventory, then run `scripts/health.py` |
 | Inspect Python | Use `scripts/repomap.py` or the target runtime’s AST tooling |

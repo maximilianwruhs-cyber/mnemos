@@ -16,6 +16,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Iterable
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import secretscan  # noqa: E402
+
 CAPS = {
     "AGENTS.md": {"lines": 120, "bytes": 32768},
     "MEMORY.md": {"lines": 200, "bytes": 12288},
@@ -79,16 +82,20 @@ def parse_notes(text: str) -> list[dict]:
     notes: list[dict] = []
     matches = list(NOTE_RE.finditer(text))
     for pos, match in enumerate(matches):
+        body_start = match.end()
         end = matches[pos + 1].start() if pos + 1 < len(matches) else len(text)
-        body = text[match.end():end]
+        body = text[body_start:end]
         section_end = body.find("\n## ")
         if section_end >= 0:
+            end = body_start + section_end
             body = body[:section_end]
         fields = {m.group(1).strip(): m.group(2).strip() for m in FIELD_RE.finditer(body)}
         notes.append({
             "id": match.group(1),
             "title": match.group(2).strip(),
             "body": body,
+            "scan_start": match.start(),
+            "scan_end": end,
             "fields": fields,
             "stub": bool(STUB_RE.search(body)),
             "links": LINK_RE.findall(fields.get("Links", "")),
@@ -245,11 +252,43 @@ def build_index(notes: list[dict], rows: list[dict], today: date) -> str:
     return "\n".join(lines) + "\n"
 
 
+def scan_secrets(notes: list[dict], memory_text: str,
+                 agents_text: str) -> list[Finding]:
+    """Return blocking findings for credentials in MEMORY.md or AGENTS.md."""
+    note_ranges = [
+        (note["scan_start"], note["scan_end"], note["id"])
+        for note in notes
+    ]
+    findings: list[Finding] = []
+    seen: set[tuple[str, str, bytes]] = set()
+
+    def add(subject: str, hit: secretscan.SecretMatch) -> None:
+        key = (subject, hit.kind, hit.fingerprint)
+        if key in seen:
+            return
+        seen.add(key)
+        detail = f"possible {hit.kind} ({hit.preview}) - remove before commit"
+        findings.append(Finding("FAIL", subject, detail))
+
+    for hit in secretscan.scan(memory_text):
+        subject = next(
+            (note_id for start, end, note_id in note_ranges
+             if start <= hit.start < end),
+            "MEMORY.md",
+        )
+        add(subject, hit)
+    for hit in secretscan.scan(agents_text):
+        add("AGENTS.md", hit)
+    return findings
+
+
 def audit(memory: Path, agents: Path, output: Path, existing_index: Path | None,
           today: date) -> tuple[list[Finding], list[dict], str]:
     findings = check_file(agents, "AGENTS.md") + check_file(memory, "MEMORY.md")
-    notes = parse_notes(read_text(memory))
+    memory_text = read_text(memory)
+    notes = parse_notes(memory_text)
     findings.extend(check_notes(notes, today))
+    findings.extend(scan_secrets(notes, memory_text, read_text(agents)))
     rows = score_notes(notes, today)
     generated = build_index(notes, rows, today)
     output.parent.mkdir(parents=True, exist_ok=True)

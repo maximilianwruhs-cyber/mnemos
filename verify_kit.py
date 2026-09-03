@@ -98,10 +98,12 @@ def main() -> int:
     if not any("JSON parse failure" in e for e in errors):
         ok("all JSON files parse")
 
-    # The handoff validator and its tests intentionally contain credential-pattern
-    # definitions and synthetic fixtures. Exclude those two scanner sources from
-    # this generic regex pass; they are covered by the mandatory handoff suite.
-    scanner_sources = {"scripts/handoff.py", "scripts/test_handoff.py"}
+    # Credential scanners and their tests intentionally contain detection patterns
+    # and synthetic fixtures. Their dedicated mandatory suites cover that behavior.
+    scanner_sources = {
+        "scripts/handoff.py", "scripts/test_handoff.py",
+        "scripts/secretscan.py", "scripts/test_secretscan.py",
+    }
     for path in sorted(p for p in ROOT.rglob("*") if p.is_file()):
         rel = path.relative_to(ROOT).as_posix()
         if rel in scanner_sources:
@@ -116,8 +118,8 @@ def main() -> int:
     suite_path = ROOT / "autonomy/config/regression.json"
     if suite_path.exists():
         suite = json.loads(suite_path.read_text(encoding="utf-8")).get("suite", [])
-        if len(suite) != 10:
-            fail(f"expected 10 regression suites, found {len(suite)}", errors)
+        if len(suite) != 11:
+            fail(f"expected 11 regression suites, found {len(suite)}", errors)
         results = []
         env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
         for item in suite:
@@ -127,7 +129,7 @@ def main() -> int:
             if run.returncode != 0:
                 fail(f"regression {item['id']} exit {run.returncode}: {(run.stdout+run.stderr)[-500:]}", errors)
         if results and all(code == 0 for _, code in results):
-            ok("10/10 bundled regression suites pass")
+            ok("11/11 bundled regression suites pass")
 
     status = "PASS" if not errors else "FAIL"
     print(f"RESULT: {status} - {len(errors)} error(s)")

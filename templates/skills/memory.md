@@ -19,7 +19,8 @@ If empty or unrecognised, run `status` and say that is what you did.
 - Any write to `MEMORY.md` desynchronises `Memory/INDEX.md`. Regenerate the index in the
   SAME task. Never defer it — a stale index is a silent lie about what is remembered.
 - Audit invocation: `ExecutePythonCode` with `script_file="/scripts/mnemos.py"`, staging
-  `/MEMORY.md`, `/AGENTS.md`, `/Memory/INDEX.md`. Exit 0 clean, 1 findings, 2 fatal.
+  `/scripts/secretscan.py`, `/MEMORY.md`, `/AGENTS.md`, and `/Memory/INDEX.md`.
+  Exit 0 clean, 1 findings, 2 fatal.
 
 ## status
 

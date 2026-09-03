@@ -11,6 +11,7 @@
     { "id": "mnemos", "script": "scripts/test_mnemos.py", "args": [] },
     { "id": "health_v2", "script": "scripts/test_health.py", "args": [] },
     { "id": "recall", "script": "scripts/test_recall.py", "args": [] },
-    { "id": "handoff", "script": "scripts/test_handoff.py", "args": [] }
+    { "id": "handoff", "script": "scripts/test_handoff.py", "args": [] },
+    { "id": "secret_gate", "script": "scripts/test_secretscan.py", "args": [] }
   ]
 }

@@ -8,6 +8,7 @@
     "/Memory/PROTOCOL.md",
     "/scripts/health.py",
     "/scripts/mnemos.py",
+    "/scripts/secretscan.py",
     "/scripts/graphcheck.py"
   ],
   "include": [
@@ -27,6 +28,7 @@
   "tool_inputs": [
     "/scripts/health.py",
     "/scripts/mnemos.py",
+    "/scripts/secretscan.py",
     "/scripts/graphcheck.py",
     "/scripts/doctor.py"
   ],

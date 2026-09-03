@@ -1,6 +1,7 @@
 # MNEMOS Ecosystem — Comprehensive Current-State Specification
 
 **Snapshot date:** 2026-08-30  
+**Post-snapshot amendment:** 2026-09-03 — the canonical package adds a reject-only memory credential gate and an eleventh mandatory regression suite; dated inventory evidence below remains historical.
 **Status:** Implemented, locally verified, scheduled; bounded evolution has fired unattended but has not yet promoted or reverted a real unattended proposal  
 **Supersedes for current-state claims:** `/uploads/MNEMOS Ecosystem Blueprint.md` and the dated implementation inventory in `/blueprints/MNEMOS-IMPLEMENTATION-GUIDE.md`  
 **Does not replace:** the implementation guide’s rationale, build sequence, failure catalogue, or porting guidance  
@@ -12,13 +13,14 @@
 
 MNEMOS is a file-native memory, governance, verification, and bounded-autonomy substrate for an LLM agent operating in SiemensGPT. It uses Markdown and JSON as durable state, Python as the deterministic enforcement layer, FileStore as the persistence boundary, and scheduled agent executions as the unattended trigger mechanism.
 
-The ecosystem has evolved beyond both source documents in five material ways:
+The ecosystem evolved beyond both source documents in five material ways at the snapshot, plus one post-snapshot security addition:
 
 1. **Health is now content-gated and attestable.** Health v2 selects a declared scope, requires complete staging, hashes inputs and tools, isolates runtime caches, distinguishes derived repairs from integrity failures, and writes an attestation only for a stable GREEN state.
 2. **Retrieval is now executable.** `recall.py` implements deterministic BM25, two-hop graph expansion, recency, salience, stable tie-breaking, and no derived index. The earlier guide described a retrieval contract and simpler lexical relevance; the running system now has a tested retrieval engine.
 3. **Session continuity is now a subsystem.** The `/handoff` skill, validator, tests, and `/handoffs/` store provide bounded continuation snapshots with evidence gates, expiry warnings, secret scanning, and resume guards.
-4. **The regression gate expanded from seven to ten suites.** Health v2, recall, and handoff are now mandatory alongside snapshot, self-heal, tick, probation, evolution, dispatcher, and memory auditing.
+4. **The regression gate expanded from seven to eleven suites.** Health v2, recall, handoff, and the memory secret gate are mandatory alongside snapshot, self-heal, tick, probation, evolution, dispatcher, and memory auditing.
 5. **Scheduled operation is real.** A bounded-evolution schedule and a separate post-tick health schedule are enabled. The latest dispatcher audit contains an unattended event at `2026-08-30T02:00:56.964067Z`. This proves execution of the scheduled pipeline, but not promotion of a real evolution proposal; the evolution audit is still empty.
+6. **Memory auditing now rejects structured credentials.** `mnemos.py audit` scans all of `MEMORY.md` and `AGENTS.md` through a stdlib-only provider-pattern scanner, attributes note-title/body hits to their note ID, emits masked blocking findings, and never mutates or redacts source files.
 
 The pre-authoring content-scoped health check observed **83 scoped files**, returned **GREEN**, and produced fingerprint `80b5516e1e5040fd`. `MEMORY.md` was at **84.9%** of its byte cap. The circuit breaker was closed and probation inactive. A full ten-suite regression run returned ten successful suite exit codes. That run exposed file-handle `ResourceWarning`s in recall despite its zero exit code; `recall.py` was corrected to use `Path.read_text()`, and its full test suite then passed with `ResourceWarning` promoted to an error.
 
@@ -195,13 +197,15 @@ Current categories:
 
 ### 7.3 Write gate
 
-A memory candidate is persisted only if all three tests pass:
+A memory candidate must first pass three semantic tests:
 
 1. **Durable:** likely still true next week.
 2. **Actionable:** changes a future decision or prevents recurrence.
 3. **Non-inferable:** cannot be reconstructed from the workspace in seconds.
 
 Provenance is mandatory. Without provenance, confidence is capped at MEDIUM. Only VERIFIED and HIGH material may auto-inject.
+
+The mechanical audit also rejects high-confidence credential shapes anywhere in `MEMORY.md` or `AGENTS.md`. Hits inside a parsed note title or body are attributed to that note ID; other L2 hits are attributed to `MEMORY.md`. Findings identify the credential kind and a masked prefix only; the full value is never emitted. The operator removes the source value and reruns the audit—there is no automatic redaction.
 
 ### 7.4 Confidence and contradiction
 
@@ -261,7 +265,8 @@ The live `/scripts/` directory contained 27 Python files at inventory time. All 
 
 | Component | Current role |
 |---|---|
-| `mnemos.py` | Parse and validate L2 notes, caps, utility, and generated L2 index |
+| `mnemos.py` | Parse and validate L2 notes, caps, utility, credential findings, and the generated L2 index |
+| `secretscan.py` | Detect structured provider credentials and return only masked match previews |
 | `graphcheck.py` | Verify cross-tier IDs/links and generate L3 registry |
 | `health.py` | Composite content-gated health verdict and repair/attestation plan |
 | `scope_manifest.py` | Select health scope from declared policy and store inventory |
@@ -284,6 +289,7 @@ The live `/scripts/` directory contained 27 Python files at inventory time. All 
 | `agentlint.py` | Agent Library export quality, hygiene, duplication, and triage audit |
 | `agent_eval.py` | Agent evaluation, harvesting, and report support |
 | `test_mnemos.py` | Memory auditor regression |
+| `test_secretscan.py` | Memory credential-gate regression |
 | `test_health.py` | Health-v2 support-tool regression |
 | `test_recall.py` | Retrieval regression |
 | `test_handoff.py` | Handoff validator regression |
@@ -444,7 +450,7 @@ Only one probationary change may exist. At inventory time probation was inactive
 
 ### 13.4 Regression gate
 
-The current gate has ten mandatory suites:
+The current gate has eleven mandatory suites:
 
 1. snapshot
 2. self-heal
@@ -456,8 +462,9 @@ The current gate has ten mandatory suites:
 8. health v2
 9. recall
 10. handoff
+11. secret gate
 
-A suite in which everything is skipped fails. In the review before authoring, all ten suite commands exited zero. Representative internal results were:
+A suite in which everything is skipped fails. In the review before authoring, the original ten suite commands exited zero; the post-snapshot secret-gate suite passes its focused run. Representative internal results were:
 
 - Snapshot: 22 self-test assertions.
 - Self-heal: 26 self-test assertions.
@@ -469,6 +476,7 @@ A suite in which everything is skipped fails. In the review before authoring, al
 - Health v2: five unit tests.
 - Recall: ten unit tests and nine self-test assertions.
 - Handoff: 22 unit tests and 16 self-test assertions.
+- Secret gate: ten unit tests covering whole-L2 coverage, note attribution, `AGENTS.md`, masking, staged `runpy` imports, clean text, distinct-token reporting, and 30 structured credential categories.
 
 The recall suite initially emitted resource warnings despite a zero exit code. That was treated as a defect, fixed, and re-run with resource warnings elevated to errors.
 
@@ -578,7 +586,7 @@ Blocking claims require stronger grounding than heuristic matching. Evidence rec
 | Tier model | L0 runtime through L4 external KB | L0 identity through L4 ephemeral | Guide model is canonical; external KB is an integration, not a tier |
 | Health | Earlier manifest-scoped health | Composite health and staging caveats | Health v2 with declared scope, digests, stable attestations, isolated caches, and health tests |
 | Retrieval | Composite scoring described | Conceptual four-stage contract and older weights | Executable BM25 + graph + recency + salience engine; no derived index |
-| Regression | Dispatcher seven tests; verifier 28-check claim | Seven mandatory self-modification suites | Ten mandatory suites; current gate exited zero for all ten before authoring |
+| Regression | Dispatcher seven tests; verifier 28-check claim | Seven mandatory self-modification suites | Eleven mandatory suites; the original ten exited zero before authoring and the secret-gate suite passed its post-snapshot focused run |
 | Persistence | Dispatcher and audit trail | `tick.py` manifest-driven plan | Runtime-only expanded manifest, hashed plan, append-prefix checks, binary refusal |
 | Self-modification | Not fully represented | Built/local, unattended unverified | Scheduled tick has fired; no real unattended evolution promotion or rollback yet |
 | Handoff | Dispatcher handoffs only | Dispatcher handoffs only | Separate human/session handoff skill and validator added |
@@ -802,7 +810,7 @@ The ecosystem is no longer merely a memory hierarchy with a dispatcher. It is a 
 1. **Memory loop:** write gate → graph-addressable storage → deterministic recall → consolidation.
 2. **Health loop:** declared scope → complete staging → deterministic checks → repair plan → stable attestation.
 3. **Autonomy loop:** authorized envelope → one transition → hashed persistence plan → append-only audit.
-4. **Evolution loop:** bounded proposal → snapshot → probation → ten-suite gate → promotion or exact rollback.
+4. **Evolution loop:** bounded proposal → snapshot → probation → eleven-suite gate → promotion or exact rollback.
 
 At the pre-authoring snapshot, the system was content-scoped GREEN, locally regression-green, and demonstrably scheduled. The main remaining proof obligation is narrow and explicit: observe a genuine unattended evolution proposal proceed through promotion or rollback with persisted audit evidence. Until that happens, unattended evolution capability is **implemented and scheduled, not operationally proven end to end**.
 

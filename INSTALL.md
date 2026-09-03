@@ -20,7 +20,7 @@ From the package root:
 python verify_kit.py
 ```
 
-This validates required files, JSON, Python parsing, forbidden live-state files, credential-like content, and the ten bundled regression suites. Generate a transport-level SHA-256 checksum after downloading the folder or archive on the target device.
+This validates required files, JSON, Python parsing, forbidden live-state files, credential-like content, and the eleven bundled regression suites. Generate a transport-level SHA-256 checksum after downloading the folder or archive on the target device.
 
 ## 3. Install
 

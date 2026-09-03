@@ -367,7 +367,7 @@ from the live file:
 | Task | Exact invocation |
 |---|---|
 | Full health verdict | `/scripts/health.py` — stage all substrate + `_paths.json` (a **list[str]**; a dict raises `IsADirectoryError`). Exit 0/1/2 = GREEN/AMBER/RED |
-| Audit the substrate | set `sys.argv` before `runpy.run_path(...)`; bare `script_file=` inherits harness argv and exits 2 |
+| Audit the substrate | stage `secretscan.py` beside `mnemos.py`, then set `sys.argv` before `runpy.run_path(...)`; bare `script_file=` inherits harness argv and exits 2 |
 | See inside a `.py` file | `/scripts/repomap.py` — `fs_read_outline` reports every script as binary |
 | Check a file's real size | `fs_file_info` — `fs_glob` reports `sizeBytes: 0` and cannot be trusted |
 | Tabular data | `duckdb.sql("… FROM '/tmp/x.parquet'")` — never `pd.read_excel` |

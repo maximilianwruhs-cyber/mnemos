@@ -13,8 +13,8 @@ directives in MEMORY.md and are NOT checked here. Do not read a green doctor as
 
 USAGE
     python doctor.py            # full report, exit 0 only if all checks pass
-Stage alongside: doclite.py, guard.py, repomap.py, mnemos.py, test_mnemos.py,
-MEMORY.md, AGENTS.md - whatever is present gets checked, the rest is skipped.
+Stage alongside: doclite.py, guard.py, repomap.py, mnemos.py, secretscan.py,
+test_mnemos.py, MEMORY.md, AGENTS.md - whatever is present gets checked, the rest is skipped.
 """
 
 from __future__ import annotations

@@ -8,6 +8,7 @@
     "HEARTBEAT.md",
     "scripts/autonomy_dispatcher.py",
     "scripts/mnemos.py",
+    "scripts/secretscan.py",
     "scripts/health.py",
     "scripts/verifier_kit.py",
     "autonomy/config/policy.json",
