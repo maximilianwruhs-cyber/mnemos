@@ -39,6 +39,8 @@ class EvidenceFinding:
 
     level: str
     detail: str
+    kind: str | None = None
+    fingerprint: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -57,64 +59,73 @@ def _canonical(values: dict[str, str]) -> str:
     return json.dumps(ordered, ensure_ascii=False, separators=(",", ":"))
 
 
-def _secret_detail(hit: secretscan.SecretMatch) -> str:
-    return f"possible {hit.kind} ({hit.preview}) - remove before commit"
+def _secret_finding(hit: secretscan.SecretMatch) -> EvidenceFinding:
+    return EvidenceFinding(
+        "FAIL",
+        f"possible {hit.kind} ({hit.preview}) - remove before commit",
+        kind=hit.kind,
+        fingerprint=hit.fingerprint,
+    )
 
 
-def _validate_values(values: dict[str, str], today: date) -> list[str]:
-    """Return FAIL detail strings for already-trimmed string field values."""
-    errors: list[str] = []
+def _validate_values(values: dict[str, str], today: date) -> list[EvidenceFinding]:
+    """Return FAIL findings for already-trimmed string field values."""
+    errors: list[EvidenceFinding] = []
     raw_date = values["date"]
     try:
         observed = datetime.strptime(raw_date, "%Y-%m-%d").date()
     except ValueError:
-        errors.append("Evidence date is invalid")
+        errors.append(EvidenceFinding("FAIL", "Evidence date is invalid"))
         observed = None
     if observed is not None and observed > today:
-        errors.append("Evidence date is in the future")
+        errors.append(EvidenceFinding("FAIL", "Evidence date is in the future"))
 
     stance = values["stance"]
     if stance not in STANCES:
-        errors.append("Evidence stance is invalid")
+        errors.append(EvidenceFinding("FAIL", "Evidence stance is invalid"))
 
     source = values["source"]
     quote = values["quote"]
     if not source:
-        errors.append("Evidence source is empty")
+        errors.append(EvidenceFinding("FAIL", "Evidence source is empty"))
     elif len(source) > MAX_SOURCE:
-        errors.append(f"Evidence source exceeds {MAX_SOURCE} characters")
+        errors.append(EvidenceFinding(
+            "FAIL", f"Evidence source exceeds {MAX_SOURCE} characters"))
     if not quote:
-        errors.append("Evidence quote is empty")
+        errors.append(EvidenceFinding("FAIL", "Evidence quote is empty"))
     elif len(quote) > MAX_QUOTE:
-        errors.append(f"Evidence quote exceeds {MAX_QUOTE} characters")
+        errors.append(EvidenceFinding(
+            "FAIL", f"Evidence quote exceeds {MAX_QUOTE} characters"))
 
     for label, value in (("source", source), ("quote", quote)):
         if "\n" in value or "\r" in value:
-            errors.append(f"Evidence {label} contains a physical newline")
+            errors.append(EvidenceFinding(
+                "FAIL", f"Evidence {label} contains a physical newline"))
 
     for label, value in (("source", source), ("quote", quote)):
         for hit in secretscan.scan(value):
-            errors.append(_secret_detail(hit))
+            errors.append(_secret_finding(hit))
 
     return errors
 
 
 
-def _parse_payload(payload: str, today: date) -> tuple[EvidenceItem | None, list[str]]:
-    """Parse one Evidence payload into an item or FAIL details."""
+def _parse_payload(payload: str, today: date) -> tuple[EvidenceItem | None, list[EvidenceFinding]]:
+    """Parse one Evidence payload into an item or FAIL findings."""
     try:
         data = json.loads(payload)
     except json.JSONDecodeError:
-        return None, ["Evidence JSON is malformed"]
+        return None, [EvidenceFinding("FAIL", "Evidence JSON is malformed")]
 
     if not isinstance(data, dict):
-        return None, ["Evidence payload must be a JSON object"]
+        return None, [EvidenceFinding("FAIL", "Evidence payload must be a JSON object")]
 
     if set(data.keys()) != set(KEYS):
-        return None, ["Evidence object keys must be exactly date/stance/source/quote"]
+        return None, [EvidenceFinding(
+            "FAIL", "Evidence object keys must be exactly date/stance/source/quote")]
 
     if any(not isinstance(data[key], str) for key in KEYS):
-        return None, ["Evidence field values must be strings"]
+        return None, [EvidenceFinding("FAIL", "Evidence field values must be strings")]
 
     values = {key: data[key].strip() for key in KEYS}
     errors = _validate_values(values, today)
@@ -147,8 +158,7 @@ def inspect(text: str, today: date) -> EvidenceReport:
         item, errors = _parse_payload(payload, today)
 
         if item is None:
-            for detail in errors:
-                findings.append(EvidenceFinding("FAIL", detail))
+            findings.extend(errors)
             continue
 
         expected_line = f"- **Evidence:** {item.canonical}"

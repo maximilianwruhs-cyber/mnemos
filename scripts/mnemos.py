@@ -52,6 +52,8 @@ class Finding:
     level: str
     subject: str
     detail: str
+    kind: str | None = None
+    fingerprint: bytes | None = None
 
 
 def read_text(path: Path) -> str:
@@ -151,7 +153,10 @@ def check_notes(notes: list[dict], today: date) -> list[Finding]:
         report = evidence.inspect(note["body"], today)
         note["evidence"] = report
         for item in report.findings:
-            findings.append(Finding(item.level, nid, item.detail))
+            findings.append(Finding(
+                item.level, nid, item.detail,
+                kind=item.kind, fingerprint=item.fingerprint,
+            ))
         evidence_fail = any(item.level == "FAIL" for item in report.findings)
         if not missing and not evidence_fail:
             findings.append(Finding("PASS", nid, "schema and evidence complete"))
@@ -278,7 +283,10 @@ def scan_secrets(notes: list[dict], memory_text: str,
             return
         seen.add(key)
         detail = f"possible {hit.kind} ({hit.preview}) - remove before commit"
-        findings.append(Finding("FAIL", subject, detail))
+        findings.append(Finding(
+            "FAIL", subject, detail,
+            kind=hit.kind, fingerprint=hit.fingerprint,
+        ))
 
     for hit in secretscan.scan(memory_text):
         subject = next(
@@ -298,16 +306,10 @@ def audit(memory: Path, agents: Path, output: Path, existing_index: Path | None,
     memory_text = read_text(memory)
     notes = parse_notes(memory_text)
     findings.extend(check_notes(notes, today))
-    secret_findings = scan_secrets(notes, memory_text, read_text(agents))
-    # Multiset reconcile: each whole-file secret cancels at most one equal
-    # earlier Evidence finding, then all whole-file secrets are appended.
-    # Preserves distinct same-preview tokens and evidence-only decoded secrets.
-    for secret in secret_findings:
-        for index, finding in enumerate(findings):
-            if finding == secret:
-                del findings[index]
-                break
-    findings.extend(secret_findings)
+    findings.extend(scan_secrets(notes, memory_text, read_text(agents)))
+    # Full dataclass identity includes optional (kind, fingerprint) so same-preview
+    # distinct credentials stay distinct while repeated credentials collapse.
+    findings = list(dict.fromkeys(findings))
     rows = score_notes(notes, today)
     generated = build_index(notes, rows, today)
     output.parent.mkdir(parents=True, exist_ok=True)

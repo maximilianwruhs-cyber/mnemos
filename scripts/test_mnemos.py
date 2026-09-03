@@ -140,6 +140,45 @@ class MnemosTests(unittest.TestCase):
         self.assertNotIn(token, secret_findings[0].detail)
         self.assertNotIn(escaped, secret_findings[0].detail)
 
+    def test_escaped_evidence_and_raw_same_preview_are_both_reported(self):
+        # Escaped Evidence-only token A is invisible to whole-file scan; raw
+        # same-preview token B is visible. Identity must keep both.
+        token_a = "ghp_" + "a" * 36
+        token_b = "ghp_" + "a" * 35 + "b"
+        escaped_a = "\\u0067" + token_a[1:]
+        evidence = (
+            '- **Evidence:** {"date":"2026-08-24","stance":"SUPPORT",'
+            f'"source":"{escaped_a}","quote":"The behavior was observed."}}\n'
+        )
+        text = VALID_NOTE.replace(EVIDENCE_LINE, evidence).replace(
+            "**Observation:** The behavior was observed.",
+            f"**Observation:** Token B: {token_b}",
+            1,
+        )
+        findings, _, _, _ = self.run_case(text)
+        secret_findings = [f for f in findings if f.detail.startswith("possible ")]
+        self.assertEqual(len(secret_findings), 2, secret_findings)
+        rendered = " ".join(f.detail for f in secret_findings)
+        self.assertNotIn(token_a, rendered)
+        self.assertNotIn(token_b, rendered)
+        self.assertNotIn(escaped_a, rendered)
+
+    def test_repeated_same_token_across_evidence_and_body_is_one_finding(self):
+        token = "ghp_" + "c" * 36
+        evidence = (
+            '- **Evidence:** {"date":"2026-08-24","stance":"SUPPORT",'
+            f'"source":"{token}","quote":"{token}"}}\n'
+        )
+        text = VALID_NOTE.replace(EVIDENCE_LINE, evidence).replace(
+            "**Observation:** The behavior was observed.",
+            f"**Observation:** again {token}",
+            1,
+        )
+        findings, _, _, _ = self.run_case(text)
+        secret_findings = [f for f in findings if f.detail.startswith("possible ")]
+        self.assertEqual(len(secret_findings), 1, secret_findings)
+        self.assertNotIn(token, secret_findings[0].detail)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
