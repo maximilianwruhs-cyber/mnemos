@@ -31,6 +31,7 @@ def load_module(filename):
 evidence = load_module("evidence.py")
 memory_note = load_module("memory_note.py")
 mnemos = load_module("mnemos.py")
+snapshot = load_module("snapshot.py")
 
 TODAY = date(2026, 9, 3)
 NOTE_WITH_SUPPORT = ('- **Evidence:** {"date":"2026-09-02","stance":"SUPPORT",'
@@ -688,6 +689,178 @@ class NoteMutationTests(unittest.TestCase):
             )
             self.assertNotEqual(bad_create.returncode, 0)
             self.assertEqual(memory.read_bytes(), before)
+
+
+DISTIL_FIELD_BLOCK = (
+    "- **Type:** Gotcha · **Confidence:** VERIFIED · **Salience:** 0.30\n"
+    "- **Created:** 2026-01-01 · **Last-Access:** 2026-09-03 · **Freq:** 0\n"
+    "- **Tags:** #test #local\n"
+    "- **Links:** [[MEM-2026-0002]]\n"
+    "- **Provenance:** Executed locally.\n"
+    "- **Observation:** The behavior was observed.\n"
+    "- **Directive:** Use the verified path.\n"
+)
+DISTIL_EVIDENCE = (
+    NOTE_WITH_SUPPORT
+    + '- **Evidence:** {"date":"2026-09-01","stance":"SUPPORT",'
+    '"source":"second probe","quote":"PASS2"}\n'
+)
+DISTIL_BODY = DISTIL_FIELD_BLOCK + DISTIL_EVIDENCE
+
+
+class DistillTests(unittest.TestCase):
+    def setUp(self):
+        if None in (memory_note, mnemos, snapshot, evidence):
+            self.skipTest("modules not staged")
+        self.dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.dir.name)
+        self.memory = self.root / "MEMORY.md"
+        text = (
+            "# MEMORY.md\n\n"
+            "## 2. Atomic Notes\n\n"
+            + _full_l2_note(NID, "Title", DISTIL_BODY)
+            + _full_l2_note(OTHER_ID, "Other", OTHER_BODY)
+            + "## 3. Ephemeral Scratchpad\n"
+        )
+        self.memory.write_text(text, encoding="utf-8")
+        self.store = self.root / "autonomy" / "snapshots"
+        self.rel = memory_note._l3_rel(NID, "Title", "lessons")
+        self.manifest = snapshot.create(
+            self.store, self.root, ["MEMORY.md", self.rel], "before-distill")
+        # Confirm the fixture genuinely scores DISTIL.
+        rows = {r["id"]: r for r in mnemos.score_notes(
+            mnemos.parse_notes(text), TODAY)}
+        self.assertEqual(rows[NID]["action"], "DISTIL")
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def _distill(self, **over):
+        args = dict(
+            memory=self.memory, root=self.root, snapshot_store=self.store,
+            snapshot_id=self.manifest["id"], nid=NID, category="lessons",
+            observation="Compressed semantic claim.", today=TODAY)
+        args.update(over)
+        return memory_note.distill(
+            args["memory"], args["root"], args["snapshot_store"],
+            args["snapshot_id"], args["nid"], args["category"],
+            args["observation"], args["today"])
+
+    def test_distill_preserves_identity_directive_links_and_evidence(self):
+        rel = self._distill()
+        self.assertEqual(rel, self.rel)
+        l3 = (self.root / rel).read_text(encoding="utf-8")
+        self.assertIn(f"# {NID} —", l3)
+        self.assertIn("Compressed semantic claim.", l3)
+        self.assertNotIn("The behavior was observed.", l3)
+        self.assertIn("Use the verified path.", l3)
+        self.assertIn(f"[[{OTHER_ID}]]", l3)
+        self.assertEqual(evidence.inspect(l3, TODAY).support, 2)
+        l2 = self.memory.read_text(encoding="utf-8")
+        notes = {n["id"]: n for n in mnemos.parse_notes(l2)}
+        self.assertTrue(notes[NID]["stub"])
+        self.assertIn("Use the verified path.", l2)
+        self.assertIn(rel, l2)
+        # Untouched sibling note is byte-for-byte identical.
+        self.assertIn(_full_l2_note(OTHER_ID, "Other", OTHER_BODY), l2)
+
+    def test_distill_refuses_non_distil_action(self):
+        text = (
+            "# MEMORY.md\n\n## 2. Atomic Notes\n\n"
+            + _full_l2_note(NID, "Title", VALID_BODY)
+            + _full_l2_note(OTHER_ID, "Other", OTHER_BODY)
+            + "## 3. Ephemeral Scratchpad\n"
+        )
+        self.memory.write_text(text, encoding="utf-8")
+        store = self.root / "keep-store"
+        manifest = snapshot.create(store, self.root, ["MEMORY.md", self.rel], "keep")
+        before = _tree_bytes(self.root)
+        with self.assertRaises(ValueError):
+            self._distill(snapshot_store=store, snapshot_id=manifest["id"])
+        self.assertEqual(_tree_bytes(self.root), before)
+
+    def test_distill_refuses_missing_note(self):
+        before = _tree_bytes(self.root)
+        with self.assertRaises(ValueError):
+            self._distill(nid="MEM-2026-0404")
+        self.assertEqual(_tree_bytes(self.root), before)
+
+    def test_distill_refuses_existing_target(self):
+        target = self.root / self.rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("# occupied\n", encoding="utf-8")
+        before = _tree_bytes(self.root)
+        with self.assertRaises(ValueError):
+            self._distill()
+        self.assertEqual(_tree_bytes(self.root), before)
+
+    def test_distill_rejects_multiline_observation(self):
+        before = _tree_bytes(self.root)
+        with self.assertRaises(ValueError):
+            self._distill(observation="line one\nline two")
+        self.assertEqual(_tree_bytes(self.root), before)
+
+    def test_distill_rejects_empty_observation(self):
+        before = _tree_bytes(self.root)
+        with self.assertRaises(ValueError):
+            self._distill(observation="   ")
+        self.assertEqual(_tree_bytes(self.root), before)
+
+    def test_distill_refuses_absent_snapshot(self):
+        before = _tree_bytes(self.root)
+        with self.assertRaises(FileNotFoundError):
+            self._distill(snapshot_id="snap-does-not-exist")
+        self.assertEqual(_tree_bytes(self.root), before)
+
+    def test_distill_refuses_stale_snapshot(self):
+        # Mutate MEMORY after snapshotting so its digest no longer matches.
+        self.memory.write_text(
+            self.memory.read_text(encoding="utf-8") + "\n<!-- drift -->\n",
+            encoding="utf-8")
+        before = _tree_bytes(self.root)
+        with self.assertRaises(ValueError):
+            self._distill()
+        self.assertEqual(_tree_bytes(self.root), before)
+
+    def test_distill_refuses_unreserved_target_path(self):
+        # Snapshot that captured MEMORY but never reserved the L3 path.
+        store = self.root / "partial-store"
+        manifest = snapshot.create(store, self.root, ["MEMORY.md"], "partial")
+        before = _tree_bytes(self.root)
+        with self.assertRaises(ValueError):
+            self._distill(snapshot_store=store, snapshot_id=manifest["id"])
+        self.assertEqual(_tree_bytes(self.root), before)
+
+    def test_distill_refuses_corrupt_snapshot(self):
+        digest = self.manifest["files"]["MEMORY.md"]
+        obj = self.store / "objects" / digest[:2] / digest
+        obj.write_bytes(b"corrupted")
+        before = _tree_bytes(self.root)
+        with self.assertRaises(ValueError):
+            self._distill()
+        self.assertEqual(_tree_bytes(self.root), before)
+
+    def test_distill_cli_smoke(self):
+        script = Path(__file__).resolve().parent / "memory_note.py"
+        run = subprocess.run(
+            [
+                sys.executable, str(script), "distill",
+                "--memory", str(self.memory),
+                "--root", str(self.root),
+                "--snapshot-store", str(self.store),
+                "--snapshot-id", self.manifest["id"],
+                "--id", NID,
+                "--category", "lessons",
+                "--observation", "Compressed semantic claim.",
+                "--today", TODAY.isoformat(),
+            ],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(run.stdout.strip(), self.rel)
+        self.assertEqual(
+            evidence.inspect((self.root / self.rel).read_text(encoding="utf-8"),
+                             TODAY).support, 2)
 
 
 if __name__ == "__main__":

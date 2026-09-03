@@ -18,6 +18,7 @@ import snapshot  # noqa: E402
 
 CATEGORIES = frozenset({"context", "lessons", "decisions", "preferences"})
 L3_HEADING_RE = re.compile(r"#[ \t]+(MEM-\d{4}-\d{4})\b")
+OBSERVATION_RE = re.compile(r"(\*\*Observation:\*\*[ \t]*)([^\n·]*)")
 MARKER = "\n## 3. Ephemeral Scratchpad"
 
 
@@ -263,6 +264,91 @@ def append_evidence(
     _atomic_replace(target, updated)
 
 
+def distill(
+    memory: Path,
+    root: Path,
+    snapshot_store: Path,
+    snapshot_id: str,
+    nid: str,
+    category: str,
+    observation: str,
+    today: date,
+) -> str:
+    """Demote a DISTIL-scored L2 note to L3, preserving evidence and links.
+
+    Gated on a verified snapshot that captured the pre-transition MEMORY and
+    reserved the new L3 path, so the move is auditable and reversible.
+    """
+    memory = Path(memory)
+    root = Path(root)
+    snapshot_store = Path(snapshot_store)
+    _validate_id(nid)
+    _validate_category(category)
+    if memory.resolve() != (root / "MEMORY.md").resolve():
+        raise ValueError("memory path must be root/MEMORY.md")
+    if observation != observation.strip() or not observation:
+        observation = observation.strip()
+    if not observation:
+        raise ValueError("observation must be non-empty")
+    if "\n" in observation or "\r" in observation:
+        raise ValueError("observation must be a single physical line")
+
+    text = memory.read_text(encoding="utf-8")
+    notes = mnemos.parse_notes(text)
+    matches = [note for note in notes if note["id"] == nid]
+    if len(matches) != 1:
+        raise ValueError(f"expected exactly one note for {nid}")
+    note = matches[0]
+    if note["stub"]:
+        raise ValueError("cannot distill a stub")
+
+    fails = [
+        finding for finding in mnemos.check_notes(notes, today)
+        if finding.level == "FAIL" and finding.subject == nid
+    ]
+    if fails:
+        raise ValueError("; ".join(item.detail for item in fails))
+
+    action = {row["id"]: row["action"] for row in mnemos.score_notes(notes, today)}
+    if action.get(nid) != "DISTIL":
+        raise ValueError(f"note action is {action.get(nid)!r}, not DISTIL")
+
+    confidence = note["fields"].get("Confidence", "").strip()
+    directive = note["fields"].get("Directive", "").strip()
+    if not confidence or not directive:
+        raise ValueError("note missing Confidence or Directive")
+
+    rel = _l3_rel(nid, note["title"], category)
+    target = root / rel
+    if target.exists():
+        raise ValueError(f"target exists: {rel}")
+
+    manifest = snapshot.load_manifest(snapshot_store, snapshot_id)
+    if not snapshot.verify(snapshot_store, snapshot_id)["ok"]:
+        raise ValueError("snapshot failed verification")
+    if Path(manifest["base"]).resolve() != root.resolve():
+        raise ValueError("snapshot base does not match root")
+    if manifest["files"].get("MEMORY.md") != snapshot.sha256_bytes(memory.read_bytes()):
+        raise ValueError("snapshot MEMORY.md digest is stale")
+    if rel not in manifest["missing"]:
+        raise ValueError(f"snapshot did not reserve L3 path: {rel}")
+
+    new_body, replaced = OBSERVATION_RE.subn(
+        lambda m: m.group(1) + observation, note["body"], count=1)
+    if replaced != 1:
+        raise ValueError("note has no Observation field")
+    note_text = f"# {nid} — {note['title']}\n\n" + new_body.strip() + "\n"
+    stub = _stub_block(nid, note["title"], confidence, directive, rel).lstrip("\n")
+    updated_memory = (
+        text[: note["scan_start"]] + stub + "\n" + text[note["scan_end"] :]
+    )
+    _check_memory_caps(updated_memory)
+
+    original_memory = memory.read_bytes()
+    _pair_replace(target, note_text, memory, updated_memory, original_memory)
+    return rel
+
+
 def _parse_today(value: str) -> date:
     try:
         return datetime.strptime(value, "%Y-%m-%d").date()
@@ -293,12 +379,30 @@ def main(argv: list[str] | None = None) -> int:
     append_p.add_argument("--evidence-json", required=True)
     append_p.add_argument("--today", required=True, type=_parse_today)
 
+    distill_p = sub.add_parser(
+        "distill", help="Demote a DISTIL-scored L2 note to L3")
+    distill_p.add_argument("--memory", required=True, type=Path)
+    distill_p.add_argument("--root", required=True, type=Path)
+    distill_p.add_argument("--snapshot-store", required=True, type=Path)
+    distill_p.add_argument("--snapshot-id", required=True)
+    distill_p.add_argument("--id", required=True)
+    distill_p.add_argument("--category", required=True)
+    distill_p.add_argument("--observation", required=True)
+    distill_p.add_argument("--today", required=True, type=_parse_today)
+
     args = parser.parse_args(argv)
     if args.command == "create":
         body = args.body_file.read_text(encoding="utf-8")
         rel = create(
             args.memory, args.root, args.id, args.title, args.category,
             body, args.today)
+        print(rel)
+        return 0
+
+    if args.command == "distill":
+        rel = distill(
+            args.memory, args.root, args.snapshot_store, args.snapshot_id,
+            args.id, args.category, args.observation, args.today)
         print(rel)
         return 0
 
