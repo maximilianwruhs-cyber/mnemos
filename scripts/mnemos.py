@@ -298,8 +298,16 @@ def audit(memory: Path, agents: Path, output: Path, existing_index: Path | None,
     memory_text = read_text(memory)
     notes = parse_notes(memory_text)
     findings.extend(check_notes(notes, today))
-    findings.extend(scan_secrets(notes, memory_text, read_text(agents)))
-    findings = list(dict.fromkeys(findings))
+    secret_findings = scan_secrets(notes, memory_text, read_text(agents))
+    # Multiset reconcile: each whole-file secret cancels at most one equal
+    # earlier Evidence finding, then all whole-file secrets are appended.
+    # Preserves distinct same-preview tokens and evidence-only decoded secrets.
+    for secret in secret_findings:
+        for index, finding in enumerate(findings):
+            if finding == secret:
+                del findings[index]
+                break
+    findings.extend(secret_findings)
     rows = score_notes(notes, today)
     generated = build_index(notes, rows, today)
     output.parent.mkdir(parents=True, exist_ok=True)

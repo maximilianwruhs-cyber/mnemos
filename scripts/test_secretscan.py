@@ -118,11 +118,9 @@ class SecretGateTests(unittest.TestCase):
 
 
     def test_distinct_tokens_with_same_preview_remain_distinct(self):
-        # Place tokens only in Observation so Evidence stays canonical. Use
-        # distinct mask prefixes: audit dedupes identical Finding values, and
-        # secretscan previews are value[:6] + "...".
         first = "ghp_" + "a" * 36
-        second = "ghp_" + "b" * 36
+        second = "ghp_" + "a" * 35 + "b"
+        # Observation only: Evidence quote also contains the fixture phrase.
         memory = VALID_NOTE.replace(
             "**Observation:** The behavior was observed.",
             f"**Observation:** Tokens: {first} {first} {second}",
@@ -132,6 +130,9 @@ class SecretGateTests(unittest.TestCase):
         failures = self.secret_failures(self.run_case(memory))
 
         self.assertEqual(len(failures), 2, failures)
+        self.assertTrue(all(f.detail.startswith("possible ") for f in failures))
+        self.assertNotIn(first, failures[0].detail + failures[1].detail)
+        self.assertNotIn(second, failures[0].detail + failures[1].detail)
 
     def test_private_key_headers_in_agents_are_rejected(self):
         headers = (

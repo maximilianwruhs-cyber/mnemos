@@ -124,6 +124,22 @@ class MnemosTests(unittest.TestCase):
         self.assertEqual(len(secret_findings), 1, secret_findings)
         self.assertNotIn(token, secret_findings[0].detail)
 
+    def test_json_escaped_evidence_secret_is_retained(self):
+        # Raw MEMORY has \\u0067hp_... so whole-file scan misses it; evidence.inspect
+        # decodes JSON and must still report the masked secret exactly once.
+        token = "ghp_" + "z" * 36
+        escaped = "\\u0067" + token[1:]
+        evidence = (
+            '- **Evidence:** {"date":"2026-08-24","stance":"SUPPORT",'
+            f'"source":"{escaped}","quote":"The behavior was observed."}}\n'
+        )
+        text = VALID_NOTE.replace(EVIDENCE_LINE, evidence)
+        findings, _, _, _ = self.run_case(text)
+        secret_findings = [f for f in findings if f.detail.startswith("possible ")]
+        self.assertEqual(len(secret_findings), 1, secret_findings)
+        self.assertNotIn(token, secret_findings[0].detail)
+        self.assertNotIn(escaped, secret_findings[0].detail)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
