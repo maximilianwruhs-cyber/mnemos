@@ -574,6 +574,38 @@ class NoteMutationTests(unittest.TestCase):
             self.assertEqual(
                 [p for p in root.rglob("*.md") if p.name != "MEMORY.md"], [])
 
+    def test_create_second_replace_failure_never_rewrites_untouched_memory(self):
+        # os.replace is atomic, so a failed MEMORY replace never touched MEMORY;
+        # the rollback must not rewrite it (a truncating write that then fails
+        # would corrupt the one file this module exists to protect).
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            memory = root / "MEMORY.md"
+            memory.write_text(EMPTY_MEMORY, encoding="utf-8")
+            original_memory = memory.read_bytes()
+
+            real_replace = memory_note.os.replace
+            calls = 0
+
+            def fail_second(source, target):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise OSError("forced second replace failure")
+                return real_replace(source, target)
+
+            def poisoned_write_bytes(self, data):
+                raise AssertionError("untouched MEMORY must not be rewritten")
+
+            with patch.object(memory_note.os, "replace", side_effect=fail_second):
+                with patch.object(memory_note.Path, "write_bytes",
+                                  poisoned_write_bytes):
+                    with self.assertRaises(OSError) as ctx:
+                        memory_note.create(memory, root, NID, "Title",
+                                           "lessons", VALID_BODY, TODAY)
+            self.assertIn("forced second replace failure", str(ctx.exception))
+            self.assertEqual(memory.read_bytes(), original_memory)
+
     def test_runpy_resolves_memory_note_siblings_from_unrelated_cwd(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

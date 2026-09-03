@@ -17,8 +17,7 @@ import mnemos  # noqa: E402
 import snapshot  # noqa: E402
 
 CATEGORIES = frozenset({"context", "lessons", "decisions", "preferences"})
-ID_RE = re.compile(r"MEM-\d{4}-\d{4}")
-L3_HEADING_RE = re.compile(r"^#\s+(MEM-\d{4}-\d{4})\b", re.M)
+L3_HEADING_RE = re.compile(r"#[ \t]+(MEM-\d{4}-\d{4})\b")
 MARKER = "\n## 3. Ephemeral Scratchpad"
 
 
@@ -101,28 +100,37 @@ def _pair_replace(
     primary = Path(primary)
     secondary = Path(secondary)
     primary_tmp = _prepare_temp(primary.parent, primary_text)
-    secondary_tmp = _prepare_temp(secondary.parent, secondary_text)
+    try:
+        secondary_tmp = _prepare_temp(secondary.parent, secondary_text)
+    except Exception:
+        if primary_tmp.exists():
+            try:
+                primary_tmp.unlink()
+            except OSError:
+                pass
+        raise
     primary_committed = False
     try:
         os.replace(primary_tmp, primary)
         primary_committed = True
-        primary_tmp = Path()  # consumed
+        primary_tmp = None  # consumed
         os.replace(secondary_tmp, secondary)
-        secondary_tmp = Path()  # consumed
+        secondary_tmp = None  # consumed
     except Exception:
-        if primary_committed and primary.exists():
-            try:
-                primary.unlink()
-            except OSError:
-                pass
-        try:
-            secondary.write_bytes(secondary_restore)
-        except OSError:
-            pass
+        # os.replace is atomic: secondary is only ever touched after primary
+        # committed, so restore it only then, and only if it actually differs.
+        if primary_committed:
+            if primary.exists():
+                try:
+                    primary.unlink()
+                except OSError:
+                    pass
+            if secondary.read_bytes() != secondary_restore:
+                secondary.write_bytes(secondary_restore)
         raise
     finally:
         for tmp in (primary_tmp, secondary_tmp):
-            if tmp and tmp.exists():
+            if tmp is not None and tmp.exists():
                 try:
                     tmp.unlink()
                 except OSError:
@@ -244,15 +252,12 @@ def append_evidence(
         return
 
     text = target.read_text(encoding="utf-8")
-    match = L3_HEADING_RE.search(text)
-    if match is None:
+    # The first level-1 heading in the file must declare exactly nid.
+    first_heading = re.search(r"^#[ \t]+.+$", text, re.M)
+    declared = L3_HEADING_RE.match(first_heading.group(0)) if first_heading else None
+    if declared is None:
         raise ValueError("L3 note missing MEM heading")
-    # First heading in the file must declare nid.
-    first = re.search(r"^#\s+.+$", text, re.M)
-    if first is None or not L3_HEADING_RE.match(first.group(0)):
-        raise ValueError("L3 note missing MEM heading")
-    declared = L3_HEADING_RE.match(first.group(0)).group(1)
-    if declared != nid:
+    if declared.group(1) != nid:
         raise ValueError(f"L3 heading ID does not match {nid}")
     updated = evidence.append(text, item, today)
     _atomic_replace(target, updated)
