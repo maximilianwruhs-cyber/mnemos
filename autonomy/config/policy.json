@@ -1,0 +1,25 @@
+{
+  "allowed_actions": [
+    "noop",
+    "write_text"
+  ],
+  "allowed_write_prefixes": [
+    "artifacts/"
+  ],
+  "approved_scopes": [
+    "workspace_artifacts"
+  ],
+  "internal_language": "en",
+  "lease_ttl_seconds": 900,
+  "max_retries": 3,
+  "one_transition_per_tick": true,
+  "protected_paths": [
+    "SOUL.md",
+    "IDENTITY.md",
+    "AGENTS.md",
+    "USER.md",
+    "MEMORY.md"
+  ],
+  "require_explicit_schedule_approval": true,
+  "schema_version": 1
+}

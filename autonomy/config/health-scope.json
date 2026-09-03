@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "required": [
+    "/MEMORY.md",
+    "/AGENTS.md",
+    "/Memory/INDEX.md",
+    "/Memory/INDEX-L3.md",
+    "/Memory/PROTOCOL.md",
+    "/scripts/health.py",
+    "/scripts/mnemos.py",
+    "/scripts/graphcheck.py"
+  ],
+  "include": [
+    "/Memory/context/*.md",
+    "/Memory/lessons/*.md",
+    "/Memory/decisions/*.md",
+    "/Memory/preferences/*.md",
+    "/Memory/daily/*.md",
+    "/scripts/*.py",
+    "/autonomy/config/*.json"
+  ],
+  "exclude": [
+    "/Memory/_archive/**",
+    "/handoffs/**",
+    "/autonomy/state/health-attestation.json"
+  ],
+  "tool_inputs": [
+    "/scripts/health.py",
+    "/scripts/mnemos.py",
+    "/scripts/graphcheck.py",
+    "/scripts/doctor.py"
+  ],
+  "attestation_path": "/autonomy/state/health-attestation.json"
+}

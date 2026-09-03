@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:simone:autonomy:envelope:v1",
+  "title": "Autonomy Queue Envelope",
+  "description": "Common envelope for reports, tasks, and handoffs.",
+  "type": "object",
+  "required": ["schema_version", "id", "kind"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$"},
+    "kind": {"enum": ["report", "task", "handoff"]},
+    "priority": {"type": "integer", "minimum": 0},
+    "retry_count": {"type": "integer", "minimum": 0},
+    "approval_scope": {"type": "string"},
+    "proposed_action": {"type": "object"},
+    "action": {"type": "object"},
+    "task_id": {"type": "string"},
+    "artifact_path": {"type": ["string", "null"]},
+    "expected_sha256": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "_comment": "The persist-list, moved out of prose and into data. scripts/tick.py stages exactly these paths, rebuilds the nested tree from flat staging, and computes the write/delete plan itself. Two entries may not share a basename, because staging is flat. Anything under 'required' aborts the tick if absent rather than running partially.",
+  "files": [
+    "autonomy/config/workspace.manifest.json",
+    "autonomy/config/policy.json",
+    "autonomy/config/envelope.schema.json",
+    "autonomy/config/invariants.json",
+    "autonomy/config/regression.json",
+    "autonomy/config/evolution.json",
+    "autonomy/config/health-scope.json",
+    "autonomy/state/circuit-breaker.json",
+    "autonomy/state/probation.json",
+    "autonomy/state/lease.json",
+    "autonomy/audit/events.jsonl",
+    "autonomy/audit/evolution.jsonl",
+    "autonomy/README.md"
+  ],
+  "required": [
+    "autonomy/config/policy.json",
+    "autonomy/config/envelope.schema.json",
+    "autonomy/state/circuit-breaker.json"
+  ],
+  "append_only": [
+    "autonomy/audit/events.jsonl",
+    "autonomy/audit/evolution.jsonl"
+  ],
+  "directories": [
+    "autonomy/reports/pending",
+    "autonomy/reports/processing",
+    "autonomy/reports/archive",
+    "autonomy/reports/rejected",
+    "autonomy/tasks/pending",
+    "autonomy/tasks/processing",
+    "autonomy/tasks/archive",
+    "autonomy/tasks/failed",
+    "autonomy/handoffs/pending",
+    "autonomy/handoffs/processing",
+    "autonomy/handoffs/accepted",
+    "autonomy/handoffs/rejected",
+    "autonomy/artifacts",
+    "autonomy/snapshots",
+    "autonomy/evolution/pending",
+    "autonomy/evolution/archive",
+    "autonomy/evolution/rejected"
+  ],
+  "_queue_note": "Queue items are discovered dynamically: whatever is present under reports/tasks/handoffs pending must be added to 'files' by the caller for that tick. tick.py captures their moves automatically once staged, so no queue path is ever hand-listed in a prompt."
+}

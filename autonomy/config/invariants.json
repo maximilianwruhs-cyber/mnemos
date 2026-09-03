@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "_comment": "Declared target state for the MNEMOS workspace. Checks and repairs must name members of the fixed enums in scripts/self_heal.py; an unknown name is a hard error, never a silent skip. Every delete is snapshotted first and is therefore reversible via scripts/snapshot.py restore. HARD_IMMUTABLE in self_heal.py is unioned with the list below and cannot be reduced by editing this file.",
+  "immutable": [
+    "MEMORY.md",
+    "USER.md",
+    "AGENTS.md",
+    "HEARTBEAT.md",
+    "scripts/autonomy_dispatcher.py",
+    "scripts/mnemos.py",
+    "scripts/health.py",
+    "scripts/verifier_kit.py",
+    "autonomy/config/policy.json",
+    "autonomy/config/envelope.schema.json",
+    "Memory/_archive/*",
+    "Memory/_archive/**",
+    "bots/**",
+    "uploads/**"
+  ],
+  "rules": [
+    {
+      "id": "debris-events",
+      "check": "files_older_than",
+      "target": "code-interpreter-output/events_*.jsonl",
+      "arg": 3600,
+      "repair": "delete_matching",
+      "severity": "low",
+      "note": "Staged audit-log copies republished by each dispatcher tick."
+    },
+    {
+      "id": "debris-policy",
+      "check": "files_older_than",
+      "target": "code-interpreter-output/policy_*.json",
+      "arg": 3600,
+      "repair": "delete_matching",
+      "severity": "low"
+    },
+    {
+      "id": "debris-circuit-breaker",
+      "check": "files_older_than",
+      "target": "code-interpreter-output/circuit-breaker*.json",
+      "arg": 3600,
+      "repair": "delete_matching",
+      "severity": "low"
+    },
+    {
+      "id": "debris-envelope-schema",
+      "check": "files_older_than",
+      "target": "code-interpreter-output/envelope.schema*.json",
+      "arg": 3600,
+      "repair": "delete_matching",
+      "severity": "low"
+    },
+    {
+      "id": "debris-dispatcher-copy",
+      "check": "files_older_than",
+      "target": "code-interpreter-output/autonomy_dispatcher*.py",
+      "arg": 3600,
+      "repair": "delete_matching",
+      "severity": "low"
+    },
+    {
+      "id": "debris-bytecode",
+      "check": "files_older_than",
+      "target": "code-interpreter-output/*.pyc",
+      "arg": 3600,
+      "repair": "delete_matching",
+      "severity": "low"
+    },
+    {
+      "id": "dispatcher-present",
+      "check": "file_exists",
+      "target": "scripts/autonomy_dispatcher.py",
+      "repair": "restore_from_snapshot",
+      "severity": "critical"
+    },
+    {
+      "id": "policy-present",
+      "check": "file_exists",
+      "target": "autonomy/config/policy.json",
+      "repair": "restore_from_snapshot",
+      "severity": "critical"
+    },
+    {
+      "id": "envelope-schema-present",
+      "check": "file_exists",
+      "target": "autonomy/config/envelope.schema.json",
+      "repair": "restore_from_snapshot",
+      "severity": "critical"
+    },
+    {
+      "id": "circuit-breaker-present",
+      "check": "file_exists",
+      "target": "autonomy/state/circuit-breaker.json",
+      "repair": "restore_from_snapshot",
+      "severity": "critical"
+    },
+    {
+      "id": "invariants-present",
+      "check": "file_exists",
+      "target": "autonomy/config/invariants.json",
+      "repair": "restore_from_snapshot",
+      "severity": "critical"
+    },
+    {
+      "id": "memory-line-cap",
+      "check": "max_line_count",
+      "target": "MEMORY.md",
+      "arg": 200,
+      "repair": "report_only",
+      "severity": "high",
+      "note": "Demotion to L3 is a judgement call, not a mechanical repair. Report, never auto-prune."
+    },
+    {
+      "id": "agents-line-cap",
+      "check": "max_line_count",
+      "target": "AGENTS.md",
+      "arg": 120,
+      "repair": "report_only",
+      "severity": "high"
+    },
+    {
+      "id": "usermd-line-cap",
+      "check": "max_line_count",
+      "target": "USER.md",
+      "arg": 40,
+      "repair": "report_only",
+      "severity": "medium"
+    }
+  ]
+}

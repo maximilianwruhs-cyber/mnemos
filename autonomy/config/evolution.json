@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "_comment": "Bounded mutation envelope. Proposals are declarative JSON, one probationary change at a time. The compiled HARD_IMMUTABLE floor in scripts/evolution.py cannot be weakened here.",
+  "allowed": [
+    "scripts/agent_eval.py",
+    "scripts/agentlint.py",
+    "scripts/autonomy_dispatcher.py",
+    "scripts/crush.py",
+    "scripts/doclite.py",
+    "scripts/graphcheck.py",
+    "scripts/guard.py",
+    "scripts/health.py",
+    "scripts/mnemos.py",
+    "scripts/repomap.py",
+    "scripts/verifier_kit.py",
+    "Memory/context/*.md",
+    "Memory/lessons/*.md",
+    "Memory/decisions/*.md"
+  ],
+  "immutable": [
+    "bots/**",
+    "uploads/**",
+    "Skills/**"
+  ],
+  "max_operations": 4,
+  "max_total_bytes": 65536
+}

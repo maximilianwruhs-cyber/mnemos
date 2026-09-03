@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "_comment": "The gate every self-modification must pass. Entries marked optional are skipped when not staged; a suite in which everything was skipped is treated as a failure, because absence of a failure is not evidence of success. This file and the scripts it names are inside the immutable core: a loop that can weaken its own tests is unbounded.",
+  "suite": [
+    { "id": "snapshot", "script": "scripts/snapshot.py", "args": ["--selftest"] },
+    { "id": "self_heal", "script": "scripts/self_heal.py", "args": ["--selftest"] },
+    { "id": "tick", "script": "scripts/tick.py", "args": ["--selftest"] },
+    { "id": "probation", "script": "scripts/probation.py", "args": ["--selftest"] },
+    { "id": "evolution", "script": "scripts/evolution.py", "args": ["--selftest"] },
+    { "id": "dispatcher", "script": "scripts/test_autonomy_dispatcher.py", "args": [] },
+    { "id": "mnemos", "script": "scripts/test_mnemos.py", "args": [] },
+    { "id": "health_v2", "script": "scripts/test_health.py", "args": [] },
+    { "id": "recall", "script": "scripts/test_recall.py", "args": [] },
+    { "id": "handoff", "script": "scripts/test_handoff.py", "args": [] }
+  ]
+}
