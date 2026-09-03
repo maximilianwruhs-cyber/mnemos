@@ -19,8 +19,11 @@ If empty or unrecognised, run `status` and say that is what you did.
 - Any write to `MEMORY.md` desynchronises `Memory/INDEX.md`. Regenerate the index in the
   SAME task. Never defer it — a stale index is a silent lie about what is remembered.
 - Audit invocation: `ExecutePythonCode` with `script_file="/scripts/mnemos.py"`, staging
-  `/scripts/secretscan.py`, `/MEMORY.md`, `/AGENTS.md`, and `/Memory/INDEX.md`.
-  Exit 0 clean, 1 findings, 2 fatal.
+  `/scripts/secretscan.py`, `/scripts/evidence.py`, `/MEMORY.md`, `/AGENTS.md`, and
+  `/Memory/INDEX.md`. Graph audits also stage `/scripts/graphcheck.py`. Distillation stages
+  `/scripts/snapshot.py` for `memory_note.py distill`. Migration dry-runs stage
+  `evidence_migrate.py`, `mnemos.py`, `graphcheck.py`, `evidence.py`, and `secretscan.py`
+  together. Exit 0 clean, 1 findings, 2 fatal.
 
 ## status
 
@@ -42,18 +45,30 @@ If empty or unrecognised, run `status` and say that is what you did.
    `Confidence` (VERIFIED | HIGH | MEDIUM | LOW), `Salience` (0.00–1.00),
    `Created`, `Last-Access`, `Freq`, `Tags`, `Links`, `Provenance`, `Observation`, `Directive`.
    `Links` must name a real note ID. `Provenance` is mandatory for VERIFIED and HIGH.
-5. Salience below ~0.75 at Freq 1 scores under the prune threshold and will be flagged
+5. Append at least one source-verifiable Evidence record — the repeatable 12th field.
+   Canonical line (keys ordered date, stance, source, quote):
+   `- **Evidence:** {"date":"2026-09-02","stance":"SUPPORT","source":"reopened path or command","quote":"exact excerpt"}`
+   `stance` is `SUPPORT` or `CHALLENGE`; every full note needs at least one SUPPORT.
+   Bounds: max 16 records/note, `source` ≤ 240 chars, `quote` ≤ 280 chars. `/memory update`
+   requires a source-verifiable SUPPORT record.
+6. Evidence is append-only: appending a record never rewrites the note's Claim or Directive.
+   A material Claim/Directive change, or a seventeenth Evidence record, creates a successor
+   note linked to its preserved predecessor — never overwrite the predecessor.
+7. Salience below ~0.75 at Freq 1 scores under the prune threshold and will be flagged
    for distillation immediately. Either justify a higher salience or write it straight to L3.
-6. If L2 already holds 12 notes, demote the lowest-utility note to `Memory/<category>/`
+8. If L2 already holds 12 notes, demote the lowest-utility note to `Memory/<category>/`
    first and leave a one-line stub behind.
-7. Regenerate `Memory/INDEX.md`, then re-audit until exit code 0.
+9. Regenerate `Memory/INDEX.md`, then re-audit until exit code 0.
 
 ## prune
 
 1. Run the auditor and read the `U(m)` column.
-2. `U(m) < 0.35` and salience `< 0.30` — hard delete, it is operational noise.
-3. `U(m) < 0.35` and salience `>= 0.30` — distil into a shorter note under `Memory/`,
-   then remove the verbose original from L2.
+2. Snapshot first with `snapshot.py`, then pass the resulting snapshot ID into DISTIL
+   (`memory_note.py distill`). DISTIL is non-lossy: it preserves the full Evidence ledger.
+   Never compress a note to one line or drop its evidence trace.
+3. `U(m) < 0.35` and salience `< 0.30` — demote to `Memory/` under DISTIL, ledger intact.
+   A note carrying a CHALLENGE record is contested: hand it to operator review, never
+   auto-delete it.
 4. Never prune a note whose directive still describes a live environment constraint,
    whatever its score says. Scores are advisory; constraints are not.
 5. Regenerate the index and re-audit.

@@ -20,7 +20,7 @@ From the package root:
 python verify_kit.py
 ```
 
-This validates required files, JSON, Python parsing, forbidden live-state files, credential-like content, and the eleven bundled regression suites. Generate a transport-level SHA-256 checksum after downloading the folder or archive on the target device.
+This validates required files, JSON, Python parsing, forbidden live-state files, credential-like content, and the twelve bundled regression suites (the twelfth is `test_evidence.py`, the Evidence-ledger gate). Generate a transport-level SHA-256 checksum after downloading the folder or archive on the target device.
 
 ## 3. Install
 
@@ -82,6 +82,7 @@ Before unattended use:
 6. Confirm an all-skipped regression suite fails.
 7. Confirm append-only audit history cannot be rewritten.
 8. Confirm repeated failures open the circuit breaker.
+9. Confirm a full note with no `SUPPORT` Evidence record is rejected by `evidence.py`, and that a `CHALLENGE`-carrying note is flagged contested rather than auto-deleted.
 
 ## 7. Enable autonomy gradually
 

@@ -93,6 +93,21 @@ class RecallTests(unittest.TestCase):
         self.assertEqual(set(docs), {"MEM-2026-0001", "MEM-2026-0002"})
         hits = recall.search("beta", docs)
         self.assertEqual(hits[0]["id"], "MEM-2026-0002")
+    def test_evidence_quote_term_is_recalled(self):
+        # A unique term living only inside the Evidence quote must still be
+        # found: recall indexes whole note text and gives the ledger no
+        # special ranking channel, so production recall.py needs no change.
+        note = (
+            "# [MEM-2026-0009] audited note\n"
+            "- **Observation:** routine.\n"
+            '- **Evidence:** {"date":"2026-09-02","stance":"SUPPORT",'
+            '"source":"probe","quote":"zylophonic anomaly confirmed"}\n'
+        )
+        docs = self.corpus({"n.md": note})
+        hits = recall.search("zylophonic", docs)
+        self.assertTrue(hits)
+        self.assertTrue(hits[0]["path"].endswith("n.md"), hits)
+
 
     def test_archive_and_generated_indexes_are_excluded(self):
         docs = self.corpus(

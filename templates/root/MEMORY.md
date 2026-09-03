@@ -17,6 +17,9 @@
 ## 2. Atomic Notes
 
 <!-- Add only notes that pass Durable + Actionable + Non-inferable. -->
+<!-- Every full note carries the repeatable 12th field, an Evidence ledger; at least one SUPPORT is required. -->
+<!-- Canonical line: - **Evidence:** {"date":"2026-09-02","stance":"SUPPORT","source":"reopened path or command","quote":"exact excerpt"} -->
+<!-- stance is SUPPORT or CHALLENGE; append-only (never rewrite a Claim); a 17th record or material change spawns a linked successor note. -->
 <!-- A demoted note leaves a one-line stub with ID, confidence, directive, and L3 path. -->
 
 ## 3. Ephemeral Scratchpad

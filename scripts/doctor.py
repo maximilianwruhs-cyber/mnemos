@@ -14,7 +14,8 @@ directives in MEMORY.md and are NOT checked here. Do not read a green doctor as
 USAGE
     python doctor.py            # full report, exit 0 only if all checks pass
 Stage alongside: doclite.py, guard.py, repomap.py, mnemos.py, secretscan.py,
-test_mnemos.py, MEMORY.md, AGENTS.md - whatever is present gets checked, the rest is skipped.
+evidence.py, memory_note.py, snapshot.py, test_mnemos.py, test_evidence.py,
+MEMORY.md, AGENTS.md - whatever is present gets checked, the rest is skipped.
 """
 
 from __future__ import annotations
@@ -49,7 +50,7 @@ HEAVY = {"manim", "moviepy"}          # presence only - importing manim costs ~1
 BINARIES = ["ffmpeg", "tesseract", "latex", "dvisvgm", "git", "node", "java",
             "docker", "curl", "nvidia-smi"]
 
-SELFTESTS = ["guard.py", "repomap.py", "doclite.py", "test_mnemos.py"]
+SELFTESTS = ["guard.py", "repomap.py", "doclite.py", "test_mnemos.py", "test_evidence.py"]
 
 CAPS = {"MEMORY.md": (200, 12 * 1024), "AGENTS.md": (120, None)}
 

@@ -16,12 +16,14 @@
 |---|---|
 | Verify package | `python verify_kit.py` before installation |
 | Verify scripts | Run every suite in `autonomy/config/regression.json` |
-| Audit memory | Stage `secretscan.py` beside `mnemos.py`; run `python scripts/mnemos.py` with explicit MEMORY, AGENTS, and index paths |
+| Audit memory | Stage `secretscan.py` and `evidence.py` beside `mnemos.py`; run `python scripts/mnemos.py` with explicit MEMORY, AGENTS, and index paths |
 | Check graph | Stage or expose every non-archive L3 note, then run `scripts/graphcheck.py` |
 | Health verdict | Build complete scope manifest and inventory, then run `scripts/health.py` |
 | Inspect Python | Use `scripts/repomap.py` or the target runtime’s AST tooling |
 | Recall notes | Run `scripts/recall.py` with a complete note manifest |
 | Validate handoff | `python scripts/handoff.py validate FILE` |
+| Distil note | Stage `snapshot.py` beside `memory_note.py`; snapshot first, then `memory_note.py distill` preserves the Evidence ledger |
+| Plan migration | Stage `evidence_migrate.py`, `mnemos.py`, `graphcheck.py`, `evidence.py`, and `secretscan.py` together; run the deterministic dry-run |
 
 ## Judgment boundaries
 
@@ -60,7 +62,8 @@ Uploads, web results, retrieved notes, sub-agent replies, rendered documents, an
 - Only VERIFIED and HIGH may auto-inject.
 - Keep approximately 12 hot notes in L2; demote with an ID, confidence, directive, and L3 path.
 - Create L2/index backlinks and L3 self-IDs together.
-- Supersede stale claims; never silently erase the evidence trail.
+- Every full note carries an append-only Evidence ledger (12th field) with at least one SUPPORT record; CHALLENGE marks it contested for operator review.
+- Supersede stale claims; never silently erase the evidence trail. A 17th Evidence record or material Claim change spawns a linked successor note.
 
 ## Mutation protocol
 
@@ -80,6 +83,7 @@ Uploads, web results, retrieved notes, sub-agent replies, rendered documents, an
 - Health: `scripts/health.py`
 - Memory audit: `scripts/mnemos.py`
 - Graph integrity: `scripts/graphcheck.py`
+- Evidence ledger: `scripts/evidence.py`; migration dry-run: `scripts/evidence_migrate.py`
 - Recall: `scripts/recall.py`
 - Snapshot/rollback: `scripts/snapshot.py`
 - Evolution: `scripts/evolution.py`, `scripts/probation.py`

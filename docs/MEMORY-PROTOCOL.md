@@ -49,9 +49,25 @@ retrieved repeatedly; demotion happens when utility decays or the line cap is hi
 - **Provenance:** How this was learned. Required.
 - **Observation:** What happened, concretely.
 - **Directive:** What to do differently next time. Actionable, imperative.
+- **Evidence:** {"date":"YYYY-MM-DD","stance":"SUPPORT|CHALLENGE","source":"path or command","quote":"exact excerpt"}
 ```
 
 `Observation` without `Directive` is trivia. Both are mandatory.
+
+**The Evidence ledger (12th field, repeatable).** Every full note carries one or more
+`Evidence` records — the audit's proof-of-work. Each is a single-line JSON object whose keys
+are exactly `date`, `stance`, `source`, `quote`, in that order.
+
+- `stance` is `SUPPORT` or `CHALLENGE`. **Every full note requires at least one SUPPORT
+  record**; a full note with zero records is a hard FAIL.
+- The generated indexes show the derived **`S/C`** tally: `count(SUPPORT)/count(CHALLENGE)`.
+- A note carrying any `CHALLENGE` record is **contested** — surfaced for operator review as
+  an AMBER/WARN, never auto-demoted to RED and never auto-deleted.
+- Bounds enforced by `scripts/evidence.py`: at most **16 records** per note, `source` ≤ 240
+  characters, `quote` ≤ 280 characters.
+- The ledger is **append-only**: appending a record never rewrites the note's Claim or
+  Directive. A material Claim/Directive change, or a **seventeenth** record, creates a
+  successor note linked to its preserved predecessor — the predecessor is never overwritten.
 
 ## 4. Retrieval mathematics
 
@@ -87,8 +103,11 @@ tag generously at write time, since tags are the recall surface.
 $$U(m) = \gamma \cdot \text{Freq}(m) + (1 - \gamma) \cdot I(m) - \lambda \cdot \Delta t$$
 
 When `U(m) < τ`:
-- `I(m) < 0.30` → **hard delete**. Transient operational noise.
-- `I(m) ≥ 0.30` → **distil**. Compress to a one-line semantic fact, drop the verbose trace.
+- `I(m) < 0.30` → **hard delete**. Transient operational noise, provided the note carries no
+  `CHALLENGE` record; a contested note goes to operator review instead of deletion.
+- `I(m) ≥ 0.30` → **distil**, and DISTIL is **non-lossy**: snapshot first, pass the snapshot ID
+  into `memory_note.py distill`, and demote the note with its full Evidence ledger preserved.
+  Never compress a note to one line or drop its evidence trace.
 
 ## 5. Lifecycle without hooks
 

@@ -9,6 +9,19 @@ recalled from memory.
 
 ---
 
+> **Amendment — 2026-09-03 (evidence-bearing notes).** The Version 1.0 text below is
+> historical: it describes the original **eleven-field** atomic-note schema and the pre-evidence
+> regression gate, and is preserved verbatim as design history. The running system has since
+> cut over to an **evidence-bearing note model**: every full note now carries an append-only
+> **Evidence ledger** — a repeatable *twelfth* field of `{date, stance, source, quote}` records,
+> at least one `SUPPORT` required, `CHALLENGE` marking a note contested for operator review.
+> `evidence.py` enforces the schema (≤16 records/note, `source` ≤240 chars, `quote` ≤280 chars,
+> append-only with linked successor notes), `evidence_migrate.py` plans a deterministic
+> migration, DISTIL is non-lossy, and `test_evidence.py` is the **twelfth** mandatory regression
+> suite. For the current contract read `docs/MEMORY-PROTOCOL.md`; for the change plan read
+> `docs/superpowers/plans/2026-09-03-mnemos-evidence-accumulating-distil.md`. Where this guide
+> and the current protocol disagree, the protocol and live code win.
+
 ## 0. How to read this
 
 **Audience.** Someone who builds or operates an LLM agent that has (a) a persistent file

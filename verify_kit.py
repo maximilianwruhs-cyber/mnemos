@@ -103,6 +103,7 @@ def main() -> int:
     scanner_sources = {
         "scripts/handoff.py", "scripts/test_handoff.py",
         "scripts/secretscan.py", "scripts/test_secretscan.py",
+        "scripts/test_evidence.py",
     }
     for path in sorted(p for p in ROOT.rglob("*") if p.is_file()):
         rel = path.relative_to(ROOT).as_posix()
@@ -118,8 +119,8 @@ def main() -> int:
     suite_path = ROOT / "autonomy/config/regression.json"
     if suite_path.exists():
         suite = json.loads(suite_path.read_text(encoding="utf-8")).get("suite", [])
-        if len(suite) != 11:
-            fail(f"expected 11 regression suites, found {len(suite)}", errors)
+        if len(suite) != 12:
+            fail(f"expected 12 regression suites, found {len(suite)}", errors)
         results = []
         env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
         for item in suite:
@@ -129,7 +130,7 @@ def main() -> int:
             if run.returncode != 0:
                 fail(f"regression {item['id']} exit {run.returncode}: {(run.stdout+run.stderr)[-500:]}", errors)
         if results and all(code == 0 for _, code in results):
-            ok("11/11 bundled regression suites pass")
+            ok("12/12 bundled regression suites pass")
 
     status = "PASS" if not errors else "FAIL"
     print(f"RESULT: {status} - {len(errors)} error(s)")

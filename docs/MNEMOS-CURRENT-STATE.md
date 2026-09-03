@@ -1,7 +1,7 @@
 # MNEMOS Ecosystem — Comprehensive Current-State Specification
 
 **Snapshot date:** 2026-08-30  
-**Post-snapshot amendment:** 2026-09-03 — the canonical package adds a reject-only memory credential gate and an eleventh mandatory regression suite; dated inventory evidence below remains historical.
+**Post-snapshot amendment:** 2026-09-03 — the canonical package adds (a) a reject-only memory credential gate and an eleventh mandatory regression suite, then (b) an evidence-bearing note model: every full note carries an append-only Evidence ledger (12th field, ≥1 SUPPORT), `evidence.py` enforces it, `evidence_migrate.py` plans a deterministic schema migration, contested (CHALLENGE) notes go to operator review, and `test_evidence.py` is the twelfth mandatory suite. Dated inventory evidence below remains historical.
 **Status:** Implemented, locally verified, scheduled; bounded evolution has fired unattended but has not yet promoted or reverted a real unattended proposal  
 **Supersedes for current-state claims:** `/uploads/MNEMOS Ecosystem Blueprint.md` and the dated implementation inventory in `/blueprints/MNEMOS-IMPLEMENTATION-GUIDE.md`  
 **Does not replace:** the implementation guide’s rationale, build sequence, failure catalogue, or porting guidance  
@@ -13,14 +13,15 @@
 
 MNEMOS is a file-native memory, governance, verification, and bounded-autonomy substrate for an LLM agent operating in SiemensGPT. It uses Markdown and JSON as durable state, Python as the deterministic enforcement layer, FileStore as the persistence boundary, and scheduled agent executions as the unattended trigger mechanism.
 
-The ecosystem evolved beyond both source documents in five material ways at the snapshot, plus one post-snapshot security addition:
+The ecosystem evolved beyond both source documents in five material ways at the snapshot, plus two post-snapshot additions (security, then evidence):
 
 1. **Health is now content-gated and attestable.** Health v2 selects a declared scope, requires complete staging, hashes inputs and tools, isolates runtime caches, distinguishes derived repairs from integrity failures, and writes an attestation only for a stable GREEN state.
 2. **Retrieval is now executable.** `recall.py` implements deterministic BM25, two-hop graph expansion, recency, salience, stable tie-breaking, and no derived index. The earlier guide described a retrieval contract and simpler lexical relevance; the running system now has a tested retrieval engine.
 3. **Session continuity is now a subsystem.** The `/handoff` skill, validator, tests, and `/handoffs/` store provide bounded continuation snapshots with evidence gates, expiry warnings, secret scanning, and resume guards.
-4. **The regression gate expanded from seven to eleven suites.** Health v2, recall, handoff, and the memory secret gate are mandatory alongside snapshot, self-heal, tick, probation, evolution, dispatcher, and memory auditing.
+4. **The regression gate expanded from seven to eleven suites at the snapshot** (twelve after the 2026-09-03 evidence suite). Health v2, recall, handoff, and the memory secret gate are mandatory alongside snapshot, self-heal, tick, probation, evolution, dispatcher, and memory auditing.
 5. **Scheduled operation is real.** A bounded-evolution schedule and a separate post-tick health schedule are enabled. The latest dispatcher audit contains an unattended event at `2026-08-30T02:00:56.964067Z`. This proves execution of the scheduled pipeline, but not promotion of a real evolution proposal; the evolution audit is still empty.
 6. **Memory auditing now rejects structured credentials.** `mnemos.py audit` scans all of `MEMORY.md` and `AGENTS.md` through a stdlib-only provider-pattern scanner, attributes note-title/body hits to their note ID, emits masked blocking findings, and never mutates or redacts source files.
+7. **Notes are now evidence-bearing.** Every full L2/L3 note carries an append-only Evidence ledger — a repeatable 12th field of `{date, stance, source, quote}` records, at least one `SUPPORT` required. `evidence.py` validates and appends canonically; the generated indexes show the derived `S/C` tally; a `CHALLENGE` record marks a note contested (AMBER operator review, never auto-delete); `evidence_migrate.py` plans a deterministic, side-effect-free schema migration; DISTIL is non-lossy and preserves the ledger. `test_evidence.py` is the twelfth mandatory suite.
 
 The pre-authoring content-scoped health check observed **83 scoped files**, returned **GREEN**, and produced fingerprint `80b5516e1e5040fd`. `MEMORY.md` was at **84.9%** of its byte cap. The circuit breaker was closed and probation inactive. A full ten-suite regression run returned ten successful suite exit codes. That run exposed file-handle `ResourceWarning`s in recall despite its zero exit code; `recall.py` was corrected to use `Path.read_text()`, and its full test suite then passed with `ResourceWarning` promoted to an error.
 
@@ -267,7 +268,9 @@ The live `/scripts/` directory contained 27 Python files at inventory time. All 
 |---|---|
 | `mnemos.py` | Parse and validate L2 notes, caps, utility, credential findings, and the generated L2 index |
 | `secretscan.py` | Detect structured provider credentials and return only masked match previews |
-| `graphcheck.py` | Verify cross-tier IDs/links and generate L3 registry |
+| `graphcheck.py` | Verify cross-tier IDs/links, audit the Evidence ledger per tier, and generate the L3 registry with `S/C`/`State` |
+| `evidence.py` | Parse, validate, canonicalize, and append the repeatable Evidence field; the memory ledger's enforcement layer |
+| `evidence_migrate.py` | Deterministic, side-effect-free migration dry-run planner projecting the evidence-schema cutover |
 | `health.py` | Composite content-gated health verdict and repair/attestation plan |
 | `scope_manifest.py` | Select health scope from declared policy and store inventory |
 | `mutation_preflight.py` | Project exact edits and reject ambiguous replacement targets |
@@ -294,6 +297,7 @@ The live `/scripts/` directory contained 27 Python files at inventory time. All 
 | `test_recall.py` | Retrieval regression |
 | `test_handoff.py` | Handoff validator regression |
 | `test_autonomy_dispatcher.py` | Dispatcher regression |
+| `test_evidence.py` | Evidence ledger, graph-audit, and migration-planner regression (twelfth mandatory suite) |
 
 Historical script line counts in the implementation guide are stale and must not be used as current inventory.
 
@@ -450,7 +454,7 @@ Only one probationary change may exist. At inventory time probation was inactive
 
 ### 13.4 Regression gate
 
-The current gate has eleven mandatory suites:
+The current gate has twelve mandatory suites:
 
 1. snapshot
 2. self-heal
@@ -463,6 +467,7 @@ The current gate has eleven mandatory suites:
 9. recall
 10. handoff
 11. secret gate
+12. evidence ledger
 
 A suite in which everything is skipped fails. In the review before authoring, the original ten suite commands exited zero; the post-snapshot secret-gate suite passes its focused run. Representative internal results were:
 
@@ -810,7 +815,7 @@ The ecosystem is no longer merely a memory hierarchy with a dispatcher. It is a 
 1. **Memory loop:** write gate → graph-addressable storage → deterministic recall → consolidation.
 2. **Health loop:** declared scope → complete staging → deterministic checks → repair plan → stable attestation.
 3. **Autonomy loop:** authorized envelope → one transition → hashed persistence plan → append-only audit.
-4. **Evolution loop:** bounded proposal → snapshot → probation → eleven-suite gate → promotion or exact rollback.
+4. **Evolution loop:** bounded proposal → snapshot → probation → twelve-suite gate → promotion or exact rollback.
 
 At the pre-authoring snapshot, the system was content-scoped GREEN, locally regression-green, and demonstrably scheduled. The main remaining proof obligation is narrow and explicit: observe a genuine unattended evolution proposal proceed through promotion or rollback with persisted audit evidence. Until that happens, unattended evolution capability is **implemented and scheduled, not operationally proven end to end**.
 

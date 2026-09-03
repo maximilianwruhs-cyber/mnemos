@@ -9,7 +9,8 @@
     "/scripts/health.py",
     "/scripts/mnemos.py",
     "/scripts/secretscan.py",
-    "/scripts/graphcheck.py"
+    "/scripts/graphcheck.py",
+    "/scripts/evidence.py"
   ],
   "include": [
     "/Memory/context/*.md",
@@ -30,6 +31,7 @@
     "/scripts/mnemos.py",
     "/scripts/secretscan.py",
     "/scripts/graphcheck.py",
+    "/scripts/evidence.py",
     "/scripts/doctor.py"
   ],
   "attestation_path": "/autonomy/state/health-attestation.json"

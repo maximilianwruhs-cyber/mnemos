@@ -12,6 +12,7 @@
     { "id": "health_v2", "script": "scripts/test_health.py", "args": [] },
     { "id": "recall", "script": "scripts/test_recall.py", "args": [] },
     { "id": "handoff", "script": "scripts/test_handoff.py", "args": [] },
-    { "id": "secret_gate", "script": "scripts/test_secretscan.py", "args": [] }
+    { "id": "secret_gate", "script": "scripts/test_secretscan.py", "args": [] },
+    { "id": "evidence_distil", "script": "scripts/test_evidence.py", "args": [] }
   ]
 }
