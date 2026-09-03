@@ -17,6 +17,14 @@ sys.modules[spec.name] = mnemos
 spec.loader.exec_module(mnemos)
 
 TODAY = date(2026, 8, 24)
+EVIDENCE_LINE = (
+    '- **Evidence:** {"date":"2026-08-24","stance":"SUPPORT",'
+    '"source":"local regression","quote":"The behavior was observed."}\n'
+)
+CHALLENGE_LINE = (
+    '- **Evidence:** {"date":"2026-08-24","stance":"CHALLENGE",'
+    '"source":"counter-probe","quote":"FAIL"}\n'
+)
 VALID_NOTE = """# MEMORY.md — Core Memory (L2)
 
 ### [MEM-2026-0001] Verified local behavior
@@ -28,7 +36,7 @@ VALID_NOTE = """# MEMORY.md — Core Memory (L2)
 - **Provenance:** Executed locally.
 - **Observation:** The behavior was observed.
 - **Directive:** Use the verified path.
-"""
+""" + EVIDENCE_LINE
 AGENTS = "# AGENTS.md\n\n- Deterministic test fixture.\n"
 
 
@@ -89,6 +97,32 @@ class MnemosTests(unittest.TestCase):
         findings, _, _, _ = self.run_case(VALID_NOTE, generated)
         self.assertTrue(any(f.level == "PASS" and f.subject == "INDEX.md" for f in findings))
         self.assertFalse(any(f.level == "FAIL" for f in findings))
+
+    def test_missing_evidence_fails(self):
+        self.assert_failure(VALID_NOTE.replace(EVIDENCE_LINE, ""),
+                            "Evidence records are required")
+
+    def test_challenge_warns_without_changing_action(self):
+        text = VALID_NOTE + CHALLENGE_LINE
+        findings, rows, generated, _ = self.run_case(text)
+        self.assertTrue(any(f.level == "WARN" and "contested" in f.detail
+                            for f in findings))
+        self.assertEqual(rows[0]["action"], "KEEP")
+        self.assertIn("| 1/1 |", generated)
+
+    def test_evidence_counts_are_derived_in_index(self):
+        _, _, generated, _ = self.run_case(VALID_NOTE)
+        self.assertIn("| S/C |", generated)
+        self.assertIn("| 1/0 |", generated)
+        self.assertNotIn("Proofs", generated)
+
+    def test_secret_in_evidence_is_reported_once_and_masked(self):
+        token = "ghp_" + "x" * 36
+        text = VALID_NOTE.replace("local regression", token)
+        findings, _, _, _ = self.run_case(text)
+        secret_findings = [f for f in findings if f.detail.startswith("possible ")]
+        self.assertEqual(len(secret_findings), 1, secret_findings)
+        self.assertNotIn(token, secret_findings[0].detail)
 
 
 if __name__ == "__main__":

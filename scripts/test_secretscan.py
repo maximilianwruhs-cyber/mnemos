@@ -30,6 +30,7 @@ VALID_NOTE = """# MEMORY.md — Core Memory (L2)
 - **Provenance:** Executed locally.
 - **Observation:** The behavior was observed.
 - **Directive:** Use the verified path.
+- **Evidence:** {"date":"2026-08-24","stance":"SUPPORT","source":"local regression","quote":"The behavior was observed."}
 """
 CLEAN_AGENTS = "# AGENTS.md\n\n- Never store API keys or private credentials.\n"
 
@@ -61,6 +62,7 @@ class SecretGateTests(unittest.TestCase):
             source = Path(__file__).resolve().parent
             shutil.copy2(source / "mnemos.py", stage / "mnemos.py")
             shutil.copy2(source / "secretscan.py", stage / "secretscan.py")
+            shutil.copy2(source / "evidence.py", stage / "evidence.py")
             code = (
                 "import runpy; "
                 f"runpy.run_path({str(stage / 'mnemos.py')!r}, run_name='mnemos_probe')"
@@ -116,10 +118,15 @@ class SecretGateTests(unittest.TestCase):
 
 
     def test_distinct_tokens_with_same_preview_remain_distinct(self):
+        # Place tokens only in Observation so Evidence stays canonical. Use
+        # distinct mask prefixes: audit dedupes identical Finding values, and
+        # secretscan previews are value[:6] + "...".
         first = "ghp_" + "a" * 36
-        second = "ghp_" + "a" * 35 + "b"
+        second = "ghp_" + "b" * 36
         memory = VALID_NOTE.replace(
-            "The behavior was observed.", f"Tokens: {first} {first} {second}"
+            "**Observation:** The behavior was observed.",
+            f"**Observation:** Tokens: {first} {first} {second}",
+            1,
         )
 
         failures = self.secret_failures(self.run_case(memory))
