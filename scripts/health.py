@@ -78,6 +78,15 @@ def strip_code_paths(text):
  text=re.sub(r"`[^`]*`","",text)
  text=re.sub(r"https?://\S+|/[-\w./]+","",text)
  return text
+def classified_findings(output):
+ fails=[line.strip() for line in output.splitlines() if "[FAIL]" in line]
+ warnings=[line.strip() for line in output.splitlines() if "[WARN]" in line]
+ return fails,warnings
+def cross_tier_findings(output):
+ fails,warnings=classified_findings(output)
+ orphans=[line.strip(" !") for line in output.splitlines()
+          if line.startswith("  !") and line.strip(" !").startswith("/")]
+ return fails,warnings,orphans
 
 def main():
  global writes
@@ -99,22 +108,24 @@ def main():
  if (STAGE/"mnemos.py").exists():
   gen=STAGE/"_health_l2.md"; code,out=run(str(STAGE/"mnemos.py"),["mnemos.py","--memory",str(STAGE/by_path.get("/MEMORY.md","MEMORY.md")),"--agents",str(STAGE/by_path.get("/AGENTS.md","AGENTS.md")),"--index",str(STAGE/by_path.get("/Memory/INDEX.md","INDEX.md")),"--output",str(gen),"--today",os.environ.get("MNEMOS_TODAY","2026-08-30")])
   canonical=gen.read_text() if gen.exists() else ""; gen.unlink(missing_ok=True)
-  hard=[x.strip() for x in out.splitlines() if "[FAIL]" in x and "INDEX.md" not in x]
+  fails,warns=classified_findings(out)
+  hard=[x for x in fails if "INDEX.md" not in x]
+  drift="persisted index differs" in out
   if hard: note("RED","L2 audit",f"{len(hard)} integrity failure(s)"); escalations.extend("L2: "+x for x in hard)
-  elif "persisted index differs" in out: note("AMBER","L2 audit","INDEX.md stale - regenerable"); writes.append(("/Memory/INDEX.md",canonical))
-  elif code==0: note("GREEN","L2 audit","schema, caps and index all clean")
-  else: note("RED","L2 audit",f"unexpected exit {code}")
+  if drift: note("AMBER","L2 audit","INDEX.md stale - regenerable"); writes.append(("/Memory/INDEX.md",canonical))
+  if warns: note("AMBER","L2 audit",f"{len(warns)} contested-evidence warning(s)"); escalations.extend("evidence: "+x for x in warns)
+  if not hard and not drift and not warns and code==0: note("GREEN","L2 audit","schema, caps and index all clean")
  else: note("RED","L2 audit","mnemos.py not staged")
  # cross-tier
  if (STAGE/"graphcheck.py").exists():
   (STAGE/"_manifest.json").write_text(json.dumps(staged))
   code,out=run(str(STAGE/"graphcheck.py"),["graphcheck.py"])
   gen=STAGE/"INDEX-L3.out.md"; canonical=gen.read_text() if gen.exists() else ""; gen.unlink(missing_ok=True)
-  fails=[x.strip() for x in out.splitlines() if "[FAIL]" in x]
-  orphans=[x.strip(" !") for x in out.splitlines() if x.startswith("  !") and x.strip(" !").startswith("/")]
+  fails,warns,orphans=cross_tier_findings(out)
   if fails: note("RED","cross-tier",f"{len(fails)} broken link(s)"); escalations.extend("link: "+x for x in fails)
   if orphans: note("RED","cross-tier",f"{len(orphans)} orphan L3 file(s)"); escalations.extend("orphan: "+x for x in orphans)
-  if not fails and not orphans: note("GREEN","cross-tier","no orphans, all links resolve")
+  if warns: note("AMBER","cross-tier",f"{len(warns)} contested-evidence warning(s)"); escalations.extend("evidence: "+x for x in warns)
+  if not fails and not orphans and not warns: note("GREEN","cross-tier","no orphans, all links resolve")
   if canonical and load(by_path.get("/Memory/INDEX-L3.md","INDEX-L3.md")).strip()!=canonical.strip(): note("AMBER","L3 registry","INDEX-L3.md stale - regenerable"); writes.append(("/Memory/INDEX-L3.md",canonical))
  else: note("RED","cross-tier","graphcheck.py not staged")
  # environment, isolated

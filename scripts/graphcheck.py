@@ -28,9 +28,14 @@ so this reads configuration from the manifest and constants only.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
+from datetime import date
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import evidence  # noqa: E402
 
 STAGE = Path("/tmp")
 MANIFEST = STAGE / "_manifest.json"
@@ -41,7 +46,8 @@ LINK_RE = re.compile(r"\[\[(MEM-\d{4}-\d{4})\]\]")
 L3PATH_RE = re.compile(r"(Memory/[\w./-]+\.md)")
 MEMID_RE = re.compile(r"(MEM-\d{4}-\d{4})")
 
-OK, BAD = "  [OK  ]", "  [FAIL]"
+OK, WARN, BAD = "  [OK  ]", "  [WARN]", "  [FAIL]"
+BRACKET = {"PASS": OK, "WARN": WARN, "FAIL": BAD}
 
 
 def load_manifest() -> dict[str, str]:
@@ -74,6 +80,30 @@ def parse_l2(text: str) -> dict[str, dict]:
         }
     return notes
 
+def _today() -> date:
+    raw = os.environ.get("MNEMOS_TODAY")
+    return date.fromisoformat(raw) if raw else date.today()
+
+
+def l3_full_note_id(path: str, text: str) -> str | None:
+    """ID an active L3 full note declares in its first heading, else None.
+
+    A path is exempt (returns None) when it lives under an ``_archive/``
+    segment, when its body is a demotion stub, or when its first Markdown
+    heading names no ``MEM-`` ID (daily digests, indexes, filename-only IDs).
+    This is the single L3-identity oracle shared with the migration planner.
+    """
+    if "/_archive/" in path:
+        return None
+    if STUB_RE.search(text):
+        return None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            match = MEMID_RE.search(stripped)
+            return match.group(1) if match else None
+    return None
+
 
 def main() -> int:
     manifest = load_manifest()
@@ -87,21 +117,24 @@ def main() -> int:
                       and p not in ("/Memory/INDEX.md", "/Memory/PROTOCOL.md",
                                     "/Memory/INDEX-L3.md"))
 
-    findings: list[tuple[bool, str, str]] = []
+    today = _today()
+    findings: list[tuple[str, str, str]] = []
     referenced: dict[str, set[str]] = {p: set() for p in l3_paths}
+    reports: dict[str, evidence.EvidenceReport] = {}
+    full_ids: dict[str, str | None] = {}
 
     # ---- C1: any note declaring an L3 path -> target exists ---------------
     for nid, n in notes.items():
         if n["stub"] and not n["l3"]:
-            findings.append((False, nid, "stub declares no L3 path"))
+            findings.append(("FAIL", nid, "stub declares no L3 path"))
             continue
         for rel in n["l3"]:
             full = "/" + rel.lstrip("/")
             if full in referenced:
                 referenced[full].add(nid)
-                findings.append((True, nid, f"stub target resolves -> {rel}"))
+                findings.append(("PASS", nid, f"stub target resolves -> {rel}"))
             else:
-                findings.append((False, nid, f"DANGLING stub target -> {rel}"))
+                findings.append(("FAIL", nid, f"DANGLING stub target -> {rel}"))
 
     # ---- C5: back-link symmetry -------------------------------------------
     for nid, n in notes.items():
@@ -111,7 +144,7 @@ def main() -> int:
             if not staged:
                 continue
             if nid not in read(staged):
-                findings.append((False, nid, f"L3 file omits its own ID ({rel})"))
+                findings.append(("FAIL", nid, f"L3 file omits its own ID ({rel})"))
 
     # ---- C2: [[MEM-]] inside L3 resolves ----------------------------------
     for path in l3_paths:
@@ -120,9 +153,9 @@ def main() -> int:
         for target in set(LINK_RE.findall(body)):
             if target in notes:
                 referenced[path].add(target)
-                findings.append((True, path, f"link {target} resolves"))
+                findings.append(("PASS", path, f"link {target} resolves"))
             else:
-                findings.append((False, path, f"unresolved link {target}"))
+                findings.append(("FAIL", path, f"unresolved link {target}"))
 
     # ---- C3: Memory/context/MEM-*.md has an L2 counterpart -----------------
     for path in l3_paths:
@@ -132,9 +165,25 @@ def main() -> int:
         for mid in ids:
             if mid in notes:
                 referenced[path].add(mid)
-                findings.append((True, path, f"has L2 counterpart {mid}"))
+                findings.append(("PASS", path, f"has L2 counterpart {mid}"))
             else:
-                findings.append((False, path, f"no L2 note for {mid}"))
+                findings.append(("FAIL", path, f"no L2 note for {mid}"))
+
+    # ---- Evidence audit: every active L3 full note carries live evidence --
+    for path in l3_paths:
+        body = read(by_path[path])
+        fid = l3_full_note_id(path, body)
+        full_ids[path] = fid
+        if fid is None:
+            continue                       # exempt: stub, archive, or non-note doc
+        report = evidence.inspect(body, today)
+        reports[path] = report
+        for finding in report.findings:
+            status = "FAIL" if finding.level == "FAIL" else "WARN"
+            findings.append((status, path, finding.detail))
+        if not report.findings:
+            findings.append(
+                ("PASS", path, f"evidence supported ({report.support}/{report.challenge})"))
 
     # ---- C4: orphans -------------------------------------------------------
     prose = "".join(read(by_path[p]) for p in ("/AGENTS.md", "/Memory/INDEX.md")
@@ -156,9 +205,10 @@ def main() -> int:
     print("=" * 74)
     print(f"  L2 notes: {len(notes)}   L3 files: {len(l3_paths)}")
     print()
-    fails = [f for f in findings if not f[0]]
-    for ok, who, msg in findings:
-        print(f"{OK if ok else BAD} {who:<46} {msg}")
+    fails = [f for f in findings if f[0] == "FAIL"]
+    warns = [f for f in findings if f[0] == "WARN"]
+    for status, who, msg in findings:
+        print(f"{BRACKET[status]} {who:<46} {msg}")
     print()
     if orphans:
         print("--- ORPHAN L3 FILES (reachable from nothing) ---")
@@ -172,15 +222,23 @@ def main() -> int:
     reg = ["# Memory Graph Index - L3 (archival tier)", "",
            "> Regenerated by `scripts/graphcheck.py`. Do not hand-edit.",
            "> `mnemos.py` covers L2; this covers everything under `Memory/`.", "",
-           "| File | Category | Reached by |", "|---|---|---|"]
+           "| File | Category | Reached by | S/C | State |", "|---|---|---|---|---|"]
     for path in l3_paths:
         cat = path.split("/")[2] if len(path.split("/")) > 3 else "-"
         src = ", ".join(sorted(referenced[path])) or "_(unreferenced)_"
-        reg.append(f"| `{path}` | {cat} | {src} |")
+        report = reports.get(path)
+        if full_ids.get(path) is None or report is None:
+            sc, state = "-", "-"
+        else:
+            sc = f"{report.support}/{report.challenge}"
+            state = ("contested" if report.contested
+                     else "supported" if report.support > 0 else "-")
+        reg.append(f"| `{path}` | {cat} | {src} | {sc} | {state} |")
     reg += ["", "## Counters", "",
             f"- L3 files: {len(l3_paths)}",
             f"- Orphans: {len(orphans)}",
-            f"- Cross-tier failures: {len(fails)}", ""]
+            f"- Cross-tier failures: {len(fails)}",
+            f"- Evidence warnings: {len(warns)}", ""]
     registry = "\n".join(reg)
     (STAGE / "INDEX-L3.out.md").write_text(registry, encoding="utf-8")
 
@@ -190,9 +248,11 @@ def main() -> int:
     print(registry)
 
     print("=" * 74)
-    print(f"  cross-tier failures: {len(fails)}   orphans: {len(orphans)}")
-    print("  VERDICT:", "PASS" if not fails and not orphans else "FAIL")
-    return 0 if (not fails and not orphans) else 1
+    print(f"  cross-tier failures: {len(fails)}   warnings: {len(warns)}   "
+          f"orphans: {len(orphans)}")
+    clean = not fails and not warns and not orphans
+    print("  VERDICT:", "PASS" if clean else "FAIL")
+    return 0 if clean else 1
 
 
 if __name__ == "__main__":

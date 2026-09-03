@@ -2,7 +2,10 @@
 """Schema and append regression tests for the pure evidence ledger."""
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
+import os
 import inspect
 import shutil
 import subprocess
@@ -32,6 +35,8 @@ evidence = load_module("evidence.py")
 memory_note = load_module("memory_note.py")
 mnemos = load_module("mnemos.py")
 snapshot = load_module("snapshot.py")
+graphcheck = load_module("graphcheck.py")
+secretscan = load_module("secretscan.py")
 
 TODAY = date(2026, 9, 3)
 NOTE_WITH_SUPPORT = ('- **Evidence:** {"date":"2026-09-02","stance":"SUPPORT",'
@@ -861,6 +866,185 @@ class DistillTests(unittest.TestCase):
         self.assertEqual(
             evidence.inspect((self.root / self.rel).read_text(encoding="utf-8"),
                              TODAY).support, 2)
+
+GC_REL = "/Memory/lessons/MEM-2026-0001-title.md"
+GC_MANIFEST = {"MEMORY.md": "/MEMORY.md", "l3.md": GC_REL}
+GC_SUPPORT = ('- **Evidence:** {"date":"2026-09-02","stance":"SUPPORT",'
+              '"source":"probe","quote":"PASS"}\n')
+GC_CHALLENGE = ('- **Evidence:** {"date":"2026-09-03","stance":"CHALLENGE",'
+                '"source":"counter","quote":"FAIL"}\n')
+
+
+def _gc_stub_memory(rel="Memory/lessons/MEM-2026-0001-title.md"):
+    return (
+        "# MEMORY.md\n\n## 2. Atomic Notes\n\n"
+        f"### [{NID}] Title\n\n"
+        f"- **Stub.** VERIFIED. Use the verified path. Full note: `{rel}`\n\n"
+        "## 3. Ephemeral Scratchpad\n"
+    )
+
+
+def _gc_full_note(evidence_lines, nid=NID):
+    return (
+        f"# {nid} — Title\n\n"
+        "- **Directive:** Use the verified path.\n"
+        f"{evidence_lines}"
+    )
+
+
+class GraphCheckTests(unittest.TestCase):
+    def setUp(self):
+        if graphcheck is None or evidence is None:
+            self.skipTest("modules not staged")
+        self.dir = tempfile.TemporaryDirectory()
+        self.stage = Path(self.dir.name)
+        self._saved = (graphcheck.STAGE, graphcheck.MANIFEST)
+        graphcheck.STAGE = self.stage
+        graphcheck.MANIFEST = self.stage / "_manifest.json"
+        os.environ["MNEMOS_TODAY"] = TODAY.isoformat()
+
+    def tearDown(self):
+        graphcheck.STAGE, graphcheck.MANIFEST = self._saved
+        os.environ.pop("MNEMOS_TODAY", None)
+        self.dir.cleanup()
+
+    def _run(self, files, manifest):
+        for name, content in files.items():
+            (self.stage / name).write_text(content, encoding="utf-8")
+        (self.stage / "_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = graphcheck.main()
+        index = self.stage / "INDEX-L3.out.md"
+        text = index.read_text(encoding="utf-8") if index.exists() else ""
+        return code, buf.getvalue(), text
+
+    def test_active_full_note_without_evidence_fails(self):
+        code, out, _ = self._run(
+            {"MEMORY.md": _gc_stub_memory(), "l3.md": _gc_full_note("")},
+            GC_MANIFEST)
+        self.assertEqual(code, 1)
+        self.assertIn("[FAIL]", out)
+        self.assertIn(GC_REL, out)
+        self.assertIn("Evidence records are required", out)
+
+    def test_valid_support_note_is_supported(self):
+        code, out, index = self._run(
+            {"MEMORY.md": _gc_stub_memory(),
+             "l3.md": _gc_full_note(GC_SUPPORT)},
+            GC_MANIFEST)
+        self.assertEqual(code, 0)
+        self.assertNotIn("[FAIL]", out)
+        self.assertIn("| 1/0 | supported |", index)
+
+    def test_contested_note_warns(self):
+        code, out, index = self._run(
+            {"MEMORY.md": _gc_stub_memory(),
+             "l3.md": _gc_full_note(GC_SUPPORT + GC_CHALLENGE)},
+            GC_MANIFEST)
+        self.assertEqual(code, 1)
+        self.assertIn("[WARN]", out)
+        self.assertIn("contested", out)
+        self.assertIn("| 1/1 | contested |", index)
+
+    def test_daily_document_with_stub_is_exempt(self):
+        daily = ("# 2026-09-03 Daily Digest\n\n"
+                 "- **Stub.** VERIFIED. Pointer. Full note: `Memory/x.md`\n")
+        manifest = dict(GC_MANIFEST)
+        manifest["daily.md"] = "/Memory/daily/2026-09-03.md"
+        code, out, index = self._run(
+            {"MEMORY.md": _gc_stub_memory(),
+             "l3.md": _gc_full_note(GC_SUPPORT),
+             "daily.md": daily},
+            manifest)
+        self.assertEqual(code, 0)
+        self.assertNotIn("/Memory/daily/2026-09-03.md   ", out.replace("[OK  ]", ""))
+        self.assertIn("| `/Memory/daily/2026-09-03.md` | daily |", index)
+        self.assertIn("| - | - |", index)
+
+    def test_l3_full_note_id_oracle(self):
+        self.assertEqual(
+            graphcheck.l3_full_note_id("/Memory/lessons/x.md",
+                                       _gc_full_note(GC_SUPPORT)), NID)
+        self.assertIsNone(graphcheck.l3_full_note_id(
+            "/Memory/_archive/x.md", _gc_full_note(GC_SUPPORT)))
+        self.assertIsNone(graphcheck.l3_full_note_id(
+            "/Memory/lessons/x.md",
+            "- **Stub.** VERIFIED. Full note: `Memory/y.md`\n"))
+        self.assertIsNone(graphcheck.l3_full_note_id(
+            "/Memory/daily/2026-09-03.md", "# 2026-09-03 Daily\n\ntext\n"))
+        self.assertIsNone(graphcheck.l3_full_note_id(
+            "/Memory/lessons/MEM-2026-0001-x.md", "# Some Title\n\nbody\n"))
+
+    def test_dangling_stub_target_remains_fail(self):
+        code, out, _ = self._run(
+            {"MEMORY.md": _gc_stub_memory("Memory/lessons/MEM-2026-0001-gone.md")},
+            {"MEMORY.md": "/MEMORY.md"})
+        self.assertEqual(code, 1)
+        self.assertIn("DANGLING stub target", out)
+
+    def test_unresolved_l3_link_remains_fail(self):
+        code, out, _ = self._run(
+            {"MEMORY.md": _gc_stub_memory(),
+             "l3.md": _gc_full_note(GC_SUPPORT) + "See [[MEM-2026-0404]]\n"},
+            GC_MANIFEST)
+        self.assertEqual(code, 1)
+        self.assertIn("unresolved link MEM-2026-0404", out)
+
+    def test_unreferenced_active_l3_is_orphan(self):
+        orphan = _gc_full_note(GC_SUPPORT, nid="MEM-2026-0002")
+        manifest = {"MEMORY.md": "/MEMORY.md",
+                    "orphan.md": "/Memory/lessons/MEM-2026-0002-loose.md"}
+        empty = "# MEMORY.md\n\n## 2. Atomic Notes\n\n## 3. Ephemeral Scratchpad\n"
+        code, out, _ = self._run(
+            {"MEMORY.md": empty, "orphan.md": orphan}, manifest)
+        self.assertEqual(code, 1)
+        self.assertIn("/Memory/lessons/MEM-2026-0002-loose.md", out)
+        self.assertIn("ORPHAN L3 FILES", out)
+
+    def test_valid_bidirectional_pair_is_clean(self):
+        code, out, index = self._run(
+            {"MEMORY.md": _gc_stub_memory(),
+             "l3.md": _gc_full_note(GC_SUPPORT)},
+            GC_MANIFEST)
+        self.assertEqual(code, 0)
+        self.assertIn("VERDICT: PASS", out)
+        self.assertIn("supported", index)
+
+    def test_isolated_import_from_unrelated_cwd(self):
+        iso = Path(self.dir.name) / "iso"
+        iso.mkdir()
+        for name in ("graphcheck.py", "evidence.py", "secretscan.py"):
+            (iso / name).write_bytes((Path("/tmp") / name).read_bytes())
+        (iso / "MEMORY.md").write_text(_gc_stub_memory(), encoding="utf-8")
+        (iso / "l3.md").write_text(_gc_full_note(GC_SUPPORT), encoding="utf-8")
+        (iso / "_manifest.json").write_text(
+            json.dumps(GC_MANIFEST), encoding="utf-8")
+        elsewhere = Path(self.dir.name) / "elsewhere"
+        elsewhere.mkdir()
+        code = (
+            "import importlib.util, io, contextlib\n"
+            "from pathlib import Path\n"
+            f"iso = Path(r'{iso}')\n"
+            "spec = importlib.util.spec_from_file_location('graphcheck', iso / 'graphcheck.py')\n"
+            "m = importlib.util.module_from_spec(spec)\n"
+            "spec.loader.exec_module(m)\n"
+            "m.STAGE = iso; m.MANIFEST = iso / '_manifest.json'\n"
+            "buf = io.StringIO()\n"
+            "with contextlib.redirect_stdout(buf): rc = m.main()\n"
+            "print('RC', rc)\n"
+        )
+        env = dict(os.environ)
+        env["PYTHONPATH"] = ""
+        env["MNEMOS_TODAY"] = TODAY.isoformat()
+        run = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=str(elsewhere), env=env, capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertIn("RC 0", run.stdout)
+        self.assertNotIn("ModuleNotFoundError", run.stderr)
+
 
 
 if __name__ == "__main__":
