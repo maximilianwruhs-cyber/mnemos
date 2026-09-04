@@ -182,7 +182,7 @@ class LexicalBaselineTests(unittest.TestCase):
     def test_unicode_tokens_keep_german_words_whole(self):
         self.assertEqual(
             baseline.unicode_tokens("Prüfen für größere Schlüssel"),
-            ["prüfen", "für", "größere", "schlüssel"],
+            ["prüfen", "für", "grössere", "schlüssel"],
         )
 
     def test_current_ascii_behavior_remains_visible(self):
