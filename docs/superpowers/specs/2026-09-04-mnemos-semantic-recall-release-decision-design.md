@@ -1,7 +1,7 @@
 # MNEMOS Semantic Recall Release-Decision Wayfinding Design
 
 **Date:** 2026-09-04  
-**Status:** Approved in chat; pending written-spec review  
+**Status:** Approved by operator
 **Scope:** Evidence and decisions required for a semantic-recall GO/NO-GO, plus one minimal safety correction that keeps uncertified semantics inert. Production reranker implementation is outside this effort.
 
 ## 1. Destination
