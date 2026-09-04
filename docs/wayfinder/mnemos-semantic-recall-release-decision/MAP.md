@@ -20,16 +20,14 @@ Reach an evidence-backed release decision for MNEMOS semantic recall: either an 
 - [Define the certification corpus contract](tickets/define-the-certification-corpus-contract.md): pin the approved principles as `corpus-v2/CONTRACT.md`, enforced by `scripts/corpus_lint.py` and proven by `scripts/test_corpus_lint.py` — normalized note-pool with gold-ID query records superseding the v1 smoke fixture, synthetic-only de-identification, a >= 0.60 cross-scenario leakage bar, a canonical hashed manifest, and a sealed one-shot certification loader.
 - [Confirm model and runtime redistribution viability](tickets/confirm-model-and-runtime-redistribution-viability.md): the ONNX runtime, `tokenizers`, and numpy are the optional runtime baseline outside the stdlib-only core; the `<= 150 MB` footprint budget counts model weights + tokenizer only (design §7 updated, Option 2). Carry `mmarco-mMiniLMv2-L12-H384-v1` (apache-2.0, ships x86-64 int8 ONNX, 135.7 MB) as the single model candidate; `jina-reranker-v2` (non-commercial) and the `>150 MB` int8 models (`gte`/`mDeBERTa`/`bge`) are ruled out.
 - [Build the frozen evidence corpus](tickets/build-the-frozen-evidence-corpus.md): `corpus-v2` is frozen and passes `scripts/corpus_lint.py` with floors on (`corpus_hash f7119959…1f8ba3`, deterministic). A reviewable bilingual seed file + `scripts/corpus_build.py` emit 76 split-exclusive scenario groups -> certification 216 q / 216 n, dev 156 q, train 84 q pool; all 9 contrast families at 24 cert queries (12 en / 12 de), certification language 50/50, max cross-split leakage 0.467 (< 0.60 gate), every positive non-lexical and cross-lingual, fully synthetic de-identified content ([evidence](evidence/certification-corpus-v2.md)).
+- [Establish production candidate recall](tickets/establish-production-candidate-recall.md): The baseline candidate union policy failed to clear development gates (Status: `CANDIDATE_NO_GO`). The selected policy `current_ascii-16-4` achieved 148/156 (94.9%) overall and 100/108 (92.6%) safety recall on the dev split, failing B1 gates (>= 155/156, 108/108 respectively). No reranking (B2) was run. Candidate generation is starved by German compound words and complex domain queries in natural phrasing ([evidence](evidence/semantic-baseline-v1.md)).
 
 ## Not yet specified
 
-- Exact candidate-union policy and whether K=20 is sufficient on representative data.
 - Exact base model, training objective, sampling policy, and quantization format.
 - Confidence signal and calibration method for abstention.
 - Final offline wheel layout for the certified companion.
 - Exact runtime API details beyond the approved `probe()` and `decide()` boundary.
-
-These items graduate into sharper tickets only when upstream evidence makes the question precise.
 
 ## Out of scope
 
