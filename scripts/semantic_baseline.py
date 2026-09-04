@@ -1,573 +1,747 @@
 #!/usr/bin/env python3
-"""Reproducible train/dev quality baseline for MNEMOS semantic recall."""
+"""Orchestrate the reproducible train/dev semantic-recall baseline."""
 from __future__ import annotations
 
+import argparse
 import hashlib
+import importlib.metadata
 import json
 import os
-import random
+import platform
+import subprocess
+import sys
 import tempfile
-import re
-import unicodedata
+import time
 from collections.abc import Callable
-import math
-from fractions import Fraction
 from pathlib import Path
 
+import corpus_lint
 import recall
+import semantic_onnx
 import vecidx
-
-
-CANDIDATE_K = 20
-UNICODE_TOKEN_RE = re.compile(r"[^\W_][\w.\-]*", re.UNICODE)
-LEXICAL_RESERVES = (20, 16, 12, 10, 8, 4, 0)
-TOKENIZER_NAMES = ("current_ascii", "unicode_nfc")
-SAFETY_FAMILIES = frozenset({
-    "success-vs-failure",
-    "permit-vs-prohibit",
-    "apply-vs-rollback",
-    "online-vs-offline",
-    "current-vs-superseded",
-    "mutate-vs-inspect",
-    "cause-vs-coincidence",
-})
-IDENTIFIER_LEXEME_RE = re.compile(
-    r"(?<![A-Za-z0-9_.:/-])(?:--)?[A-Za-z0-9][A-Za-z0-9_.:/-]*(?![A-Za-z0-9_.:/-])"
+from semantic_baseline_core import (
+    CANDIDATE_K,
+    TOKENIZER_NAMES,
+    BaselineError,
+    SetupError,
+    adapt_notes,
+    aggregate_results,
+    candidate_gate,
+    canonical_json_bytes,
+    cluster_interval,
+    compare_results,
+    evaluate_all_candidate_policies,
+    evaluate_candidate_policy,
+    identifier_tokens,
+    paired_cluster_interval,
+    policy_grid,
+    protected_note_ids,
+    rank_bm25,
+    rank_potion,
+    score_query,
+    score_rerank,
+    select_policy,
+    unicode_tokens,
+    union_candidates,
+    write_json,
 )
 
 
-class BaselineError(ValueError):
-    """The baseline input or policy violates a declared invariant."""
+REPO_ROOT = Path(__file__).resolve().parents[1]
+_COMPLETE_FILES = (
+    "config.json",
+    "dev-report.json",
+    "model-manifest.json",
+    "selected-policy.json",
+    "train-report.json",
+)
 
 
-class SetupError(BaselineError):
-    """A required runtime artifact or environment value is unavailable."""
-
-
-def unicode_tokens(text: str) -> list[str]:
-    """Tokenize NFC text without splitting non-ASCII letters."""
-    out = []
-    normalized = unicodedata.normalize("NFC", text).casefold()
-    for match in UNICODE_TOKEN_RE.finditer(normalized):
-        token = match.group(0).strip(".-_")
-        if len(token) >= 2 and token not in recall.STOP:
-            out.append(token)
-    return out
-
-
-def adapt_notes(
-    notes: list[dict], tokenizer: Callable[[str], list[str]]
-) -> dict[str, dict]:
-    """Adapt corpus notes without leaking IDs or invented metadata into ranking."""
-    return {
-        note["id"]: {
-            "path": note["id"],
-            "title": "",
-            "text": note["text"],
-            "created": None,
-            "salience": recall.DEFAULT_SALIENCE,
-            "mentions": set(),
-            "self_ids": set(),
-            "tokens": tokenizer(note["text"]),
-        }
-        for note in notes
-    }
-
-
-def rank_bm25(
-    query_text: str,
-    notes: list[dict],
-    tokenizer: Callable[[str], list[str]],
-) -> list[tuple[str, float]]:
-    """Rank positive lexical matches by normalized production BM25 and note ID."""
-    docs = adapt_notes(notes, tokenizer)
-    query_tokens = tokenizer(query_text)
-    if not query_tokens:
-        return []
-    scores = recall._normalise(recall.bm25(docs, query_tokens))
-    return sorted(
-        ((note_id, score) for note_id, score in scores.items() if score > 0.0),
-        key=lambda item: (-item[1], item[0]),
-    )
-
-
-def _is_identifier(token: str) -> bool:
-    return (
-        len(token) >= 2
-        and (
-            any(char.isdigit() for char in token)
-            or token.startswith("--")
-            or any(char in token for char in "._/:")
-        )
-    )
-
-
-def identifier_tokens(text: str) -> tuple[str, ...]:
-    """Return sorted, exact identifier-like lexemes from text."""
-    normalized = unicodedata.normalize("NFC", text).casefold()
-    return tuple(
-        sorted(
-            {
-                match.group(0)
-                for match in IDENTIFIER_LEXEME_RE.finditer(normalized)
-                if _is_identifier(match.group(0))
-            }
-        )
-    )
-
-
-def protected_note_ids(
-    query_text: str,
-    notes: list[dict],
-    deterministic: list[tuple[str, float]],
-) -> tuple[str, ...]:
-    """Return exact-identifier note hits in deterministic order, then note ID."""
-    wanted = set(identifier_tokens(query_text))
-    matched = {
-        note["id"]
-        for note in notes
-        if wanted.intersection(identifier_tokens(note["text"]))
-    }
-    positions = {
-        note_id: index for index, (note_id, _score) in enumerate(deterministic)
-    }
-    ordered = tuple(
-        sorted(matched, key=lambda note_id: (positions.get(note_id, len(positions)), note_id))
-    )
-    if len(ordered) > CANDIDATE_K:
-        raise BaselineError("identifier_budget_overflow")
-    return ordered
-
-
-def policy_grid() -> tuple[tuple[str, int], ...]:
-    return tuple(
-        (tokenizer_name, reserve)
-        for tokenizer_name in TOKENIZER_NAMES
-        for reserve in LEXICAL_RESERVES
-    )
-
-
-def rank_potion(
-    query_text: str, note_ids: list[str], matrix
-) -> list[tuple[str, float]]:
-    """Rank every indexed note by cosine score, including zero/negative scores."""
-    if len(note_ids) != len(matrix):
-        raise BaselineError("Potion note IDs and matrix rows differ")
-    query_vector = vecidx.embed_query(query_text)
-    rows = [
-        (note_id, float(matrix[index] @ query_vector))
-        for index, note_id in enumerate(note_ids)
-    ]
-    rows.sort(key=lambda item: (-item[1], item[0]))
-    return rows
-
-
-def union_candidates(
-    deterministic,
-    semantic,
-    protected,
-    lexical_reserve: int,
-    k: int = CANDIDATE_K,
-) -> list[str]:
-    """Build one protected, deduplicated L/V candidate union."""
-    protected = tuple(dict.fromkeys(protected))
-    if len(protected) > k:
-        raise BaselineError("identifier_budget_overflow")
-    if not 0 <= lexical_reserve <= k:
-        raise BaselineError(f"invalid lexical reserve: {lexical_reserve}")
-
-    deterministic = list(deterministic)
-    deterministic_ids = {note_id for note_id, _score in deterministic}
-    out = list(protected)
-    seen = set(out)
-    lexical_count = sum(note_id in deterministic_ids for note_id in out)
-
-    for note_id, _score in deterministic:
-        if len(out) >= k or lexical_count >= lexical_reserve:
-            break
-        if note_id not in seen:
-            out.append(note_id)
-            seen.add(note_id)
-            lexical_count += 1
-
-    if len(out) < k:
-        for note_id, _score in semantic:
-            if note_id in seen:
-                continue
-            out.append(note_id)
-            seen.add(note_id)
-            if len(out) >= k:
-                break
-
-    if len(out) < k:
-        for note_id, _score in deterministic:
-            if note_id in seen:
-                continue
-            out.append(note_id)
-            seen.add(note_id)
-            if len(out) >= k:
-                break
-    return out
-
-
-def candidate_gate(report: dict, expected_queries: int | None = None) -> list[str]:
-    errors = []
-    overall = report["overall"]
-    if expected_queries is not None:
-        if overall["queries"] != expected_queries:
-            errors.append(
-                f"query count {overall['queries']} != expected {expected_queries}"
-            )
-        required = math.ceil(0.99 * expected_queries)
-        if overall["hit_at_20"] < required:
-            errors.append(
-                f"overall Recall@20 {overall['hit_at_20']}/{expected_queries} "
-                f"< {required}/{expected_queries}"
-            )
-    for name in ("safety", "identifier"):
-        counts = report[name]
-        if counts["hit_at_20"] != counts["queries"]:
-            errors.append(
-                f"{name} Recall@20 {counts['hit_at_20']}/{counts['queries']} "
-                f"!= {counts['queries']}/{counts['queries']}"
-            )
-    if report["protected_dropped"]:
-        errors.append(f"protected hits dropped: {report['protected_dropped']}")
-    return errors
-
-
-def select_policy(policy_reports: list[dict]) -> dict | None:
-    eligible = [report for report in policy_reports if not report["gate_errors"]]
-    if not eligible:
-        return None
-    grid_order = {
-        f"{tokenizer}-{reserve}-{CANDIDATE_K - reserve}": index
-        for index, (tokenizer, reserve) in enumerate(policy_grid())
-    }
-
-    def key(report):
-        overall = report["overall"]
-        recall_at_20 = Fraction(overall["hit_at_20"], overall["queries"] or 1)
-        current = report["tokenizer"] == "current_ascii"
-        return (
-            recall_at_20,
-            current,
-            report["lexical_reserve"],
-            -grid_order[report["policy_id"]],
-        )
-
-    return max(eligible, key=key)
-
-
-
-
-def _count_hits(rows: list[dict]) -> dict:
-    return {
-        "queries": len(rows),
-        "hit_at_20": sum(bool(row["hit_at_20"]) for row in rows),
-    }
-
-
-def evaluate_candidate_policy(
-    split_data: dict,
-    tokenizer_name: str,
-    lexical_reserve: int,
-    semantic_rankings: dict[str, list[tuple[str, float]]],
+def load_baseline_split(
+    root: Path, split: str, loader=corpus_lint.load_split
 ) -> dict:
-    tokenizers = {"current_ascii": recall.tokens, "unicode_nfc": unicode_tokens}
-    try:
-        tokenizer = tokenizers[tokenizer_name]
-    except KeyError as exc:
-        raise BaselineError(f"unknown tokenizer: {tokenizer_name}") from exc
+    if split not in {"train", "dev"}:
+        raise BaselineError(f"baseline may not open split: {split}")
+    return loader(root, split, certified_run=False)
 
-    notes = split_data["notes"]
-    rows = []
-    protected_dropped = 0
-    for query in split_data["queries"]:
-        deterministic = rank_bm25(query["text"], notes, tokenizer)
-        protected = protected_note_ids(query["text"], notes, deterministic)
-        if "identifier-tokens" in query["contrast_families"]:
-            if not identifier_tokens(query["text"]):
-                raise BaselineError(f"{query['id']}: identifier query has no identifier")
-            if not set(query["gold"]).intersection(protected):
-                raise BaselineError(f"{query['id']}: no exact identifier gold")
-        candidates = union_candidates(
-            deterministic,
-            semantic_rankings[query["id"]],
-            protected,
-            lexical_reserve,
+
+def validate_query_coverage(
+    expected_ids: list[str], results: dict[str, dict]
+) -> None:
+    if len(expected_ids) != len(set(expected_ids)):
+        raise SetupError("duplicate expected query ID")
+    missing = sorted(set(expected_ids).difference(results))
+    unexpected = sorted(set(results).difference(expected_ids))
+    if missing or unexpected:
+        raise SetupError(
+            f"query coverage mismatch; missing={missing}, unexpected={unexpected}"
         )
-        protected_dropped += len(set(protected).difference(candidates))
-        rows.append({
-            "query_id": query["id"],
-            "candidates": candidates,
-            "protected": list(protected),
-            "hit_at_20": bool(set(query["gold"]).intersection(candidates)),
-            "safety": bool(SAFETY_FAMILIES.intersection(query["contrast_families"])),
-            "identifier": "identifier-tokens" in query["contrast_families"],
-        })
 
-    report = {
-        "policy_id": f"{tokenizer_name}-{lexical_reserve}-{CANDIDATE_K - lexical_reserve}",
-        "tokenizer": tokenizer_name,
-        "lexical_reserve": lexical_reserve,
-        "semantic_reserve": CANDIDATE_K - lexical_reserve,
-        "overall": _count_hits(rows),
-        "safety": _count_hits([row for row in rows if row["safety"]]),
-        "identifier": _count_hits([row for row in rows if row["identifier"]]),
-        "protected_dropped": protected_dropped,
-        "queries": rows,
+
+def validate_split_counts(split_data: dict, expected: dict, split: str) -> None:
+    for kind in ("notes", "queries"):
+        actual = len(split_data[kind])
+        if actual != expected[kind]:
+            raise SetupError(f"{split} {kind} {actual} != {expected[kind]}")
+
+
+def assert_repeatable_rankings(runs: list[dict[str, list[str]]]) -> str:
+    if len(runs) != 20:
+        raise SetupError(f"determinism requires 20 runs, got {len(runs)}")
+    expected = canonical_json_bytes(runs[0])
+    for index, run in enumerate(runs[1:], 2):
+        if canonical_json_bytes(run) != expected:
+            raise SetupError(f"determinism mismatch on run {index}")
+    return hashlib.sha256(expected).hexdigest()
+
+
+def require_new_output(path: Path) -> None:
+    if Path(path).exists():
+        raise SetupError(f"output already exists: {path}")
+
+
+def current_git_commit() -> str:
+    completed = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout.strip()
+
+
+def environment_metadata(
+    package_names: tuple[str, ...],
+    provider: str | None,
+    *,
+    package_version=importlib.metadata.version,
+    git_commit=current_git_commit,
+    platform_info=platform.platform,
+    cpu_name=platform.processor,
+) -> dict:
+    return {
+        "git_commit": git_commit(),
+        "platform": platform_info(),
+        "python": platform.python_version(),
+        "cpu": cpu_name(),
+        "dependencies": {
+            name: package_version(name) for name in sorted(package_names)
+        },
+        "provider": provider,
     }
-    report["gate_errors"] = candidate_gate(report)
+
+
+def _config(path: Path) -> tuple[dict, str]:
+    path = Path(path)
+    payload = path.read_bytes()
+    try:
+        value = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise SetupError(f"invalid config: {exc}") from exc
+    if payload != canonical_json_bytes(value):
+        raise SetupError("config is not canonical JSON")
+    return value, hashlib.sha256(payload).hexdigest()
+
+
+def _corpus_root(config_path: Path, config: dict) -> Path:
+    return (Path(config_path).parent / config["corpus"]["root"]).resolve()
+
+
+def _sha256_file(path: Path) -> str:
+    try:
+        with Path(path).open("rb") as handle:
+            return hashlib.file_digest(handle, "sha256").hexdigest()
+    except FileNotFoundError as exc:
+        raise SetupError(f"missing file: {path}") from exc
+
+
+def _read_json_file(path: Path, label: str) -> dict:
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise SetupError(f"missing {label}: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise SetupError(f"invalid {label}: {exc}") from exc
+
+
+def preflight_inputs(
+    config_path: Path,
+    stage: str,
+    model_manifest: Path | None = None,
+    *,
+    package_version=importlib.metadata.version,
+    python_version=platform.python_version,
+    potion_dir: Path | None = None,
+    onnx_verifier=semantic_onnx.verify_environment,
+) -> dict:
+    if stage not in {"train", "dev"}:
+        raise SetupError(f"unknown baseline stage: {stage}")
+    config, config_sha256 = _config(config_path)
+    cert_errors = corpus_lint.check_no_cert_reference(config_path)
+    if cert_errors:
+        raise SetupError("; ".join(cert_errors))
+
+    actual_python = ".".join(python_version().split(".")[:2])
+    if actual_python != config["dependencies"]["python"]:
+        raise SetupError(
+            f"python version {actual_python} != {config['dependencies']['python']}"
+        )
+    required_packages = ["numpy", "model2vec", "tokenizers"]
+    if stage == "dev":
+        required_packages.append("onnxruntime")
+    versions = {}
+    for name in required_packages:
+        try:
+            actual = package_version(name)
+        except importlib.metadata.PackageNotFoundError as exc:
+            raise SetupError(f"missing package: {name}") from exc
+        expected = config["dependencies"][name]
+        if actual != expected:
+            raise SetupError(f"{name} version {actual} != {expected}")
+        versions[name] = actual
+
+    corpus_root = _corpus_root(config_path, config)
+    corpus_manifest = _read_json_file(corpus_root / "manifest.json", "corpus manifest")
+    for key, expected in (
+        ("corpus_version", config["corpus"]["corpus_version"]),
+        ("corpus_hash", config["corpus"]["corpus_hash"]),
+        ("frozen", True),
+    ):
+        if corpus_manifest.get(key) != expected:
+            raise SetupError(
+                f"corpus manifest {key} {corpus_manifest.get(key)!r} != {expected!r}"
+            )
+    for kind in ("notes", "queries"):
+        relative = f"{stage}/{kind}.jsonl"
+        path = corpus_root / relative
+        if not path.is_file():
+            raise SetupError(f"missing corpus file: {relative}")
+        actual = _sha256_file(path)
+        expected = corpus_manifest["file_hashes"].get(relative)
+        if actual != expected:
+            raise SetupError(f"{relative} hash {actual} != {expected}")
+
+    potion_dir = Path(potion_dir) if potion_dir is not None else vecidx.MODEL_DIR
+    potion_files = {}
+    for relative, expected in sorted(config["potion_files"].items()):
+        path = potion_dir / relative
+        if not path.is_file():
+            raise SetupError(f"missing Potion file: {relative}")
+        actual = _sha256_file(path)
+        if actual != expected:
+            raise SetupError(f"Potion {relative} hash {actual} != {expected}")
+        potion_files[relative] = actual
+
+    result = {
+        "config": config,
+        "config_sha256": config_sha256,
+        "corpus_root": str(corpus_root),
+        "corpus_manifest": corpus_manifest,
+        "dependencies": versions,
+        "potion_files": potion_files,
+    }
+    if stage == "dev":
+        if model_manifest is None:
+            raise SetupError("model manifest required for dev")
+        declared_model = _read_json_file(model_manifest, "model manifest")
+        spec = config["reranker"]
+        for key in ("repository", "revision", "provider", "files"):
+            if declared_model.get(key) != spec[key]:
+                raise SetupError(f"model manifest {key} mismatch")
+        for name, expected in sorted(config["dependencies"].items()):
+            actual = (
+                ".".join(str(declared_model.get("python", "")).split(".")[:2])
+                if name == "python"
+                else declared_model.get("dependencies", {}).get(name)
+            )
+            if actual != expected:
+                raise SetupError(f"model manifest dependency {name} mismatch")
+        model_dir = REPO_ROOT / spec["model_dir"]
+        try:
+            result["reranker"] = onnx_verifier(
+                config, model_dir, package_version=package_version
+            )
+        except semantic_onnx.OnnxSetupError as exc:
+            raise SetupError(str(exc)) from exc
+    return result
+
+
+def _evaluate_b0(split_data: dict, tokenizer_name: str) -> dict:
+    tokenizer = {
+        "current_ascii": recall.tokens,
+        "unicode_nfc": unicode_tokens,
+    }[tokenizer_name]
+    notes = split_data["notes"]
+    notes_by_id = {note["id"]: note for note in notes}
+    results = {}
+    for query in split_data["queries"]:
+        ranked = rank_bm25(query["text"], notes, tokenizer)
+        ranking = [note_id for note_id, _score in ranked][:CANDIDATE_K]
+        protected = set(protected_note_ids(query["text"], notes, ranked))
+        results[query["id"]] = score_query(query, ranking, protected, notes_by_id)
+    validate_query_coverage([query["id"] for query in split_data["queries"]], results)
+    return {
+        "metrics": aggregate_results(split_data["queries"], results),
+        "queries": results,
+    }
+
+
+def _semantic_rankings(split_data: dict) -> dict[str, list[tuple[str, float]]]:
+    notes = sorted(split_data["notes"], key=lambda note: note["id"])
+    note_ids = [note["id"] for note in notes]
+    matrix = vecidx.embed_texts([note["text"] for note in notes])
+    return {
+        query["id"]: rank_potion(query["text"], note_ids, matrix)
+        for query in split_data["queries"]
+    }
+
+
+def evaluate_split_policies(split_data: dict) -> list[dict]:
+    return evaluate_all_candidate_policies(split_data, _semantic_rankings(split_data))
+
+
+def evaluate_split_policy(
+    split_data: dict, tokenizer_name: str, lexical_reserve: int
+) -> dict:
+    return evaluate_candidate_policy(
+        split_data, tokenizer_name, lexical_reserve, _semantic_rankings(split_data)
+    )
+
+
+def _candidate_query_results(split_data: dict, candidate_report: dict) -> dict:
+    queries_by_id = {query["id"]: query for query in split_data["queries"]}
+    notes_by_id = {note["id"]: note for note in split_data["notes"]}
+    rows_by_id = {row["query_id"]: row for row in candidate_report["queries"]}
+    validate_query_coverage(list(queries_by_id), rows_by_id)
+    return {
+        query_id: score_query(
+            query,
+            rows_by_id[query_id]["candidates"],
+            set(rows_by_id[query_id]["protected"]),
+            notes_by_id,
+        )
+        for query_id, query in queries_by_id.items()
+    }
+
+
+def _confidence(results: dict[str, dict], config: dict) -> dict:
+    rows = list(results.values())
+    if not rows:
+        return {}
+    bootstrap = config["bootstrap"]
+    return {
+        metric: cluster_interval(rows, metric, bootstrap["seed"], bootstrap["samples"])
+        for metric in ("hit_at_1", "hit_at_3", "hit_at_20", "reciprocal_rank")
+    }
+
+
+def _paired_confidence(
+    left: dict[str, dict], right: dict[str, dict], config: dict
+) -> dict:
+    if not left and not right:
+        return {}
+    bootstrap = config["bootstrap"]
+    return {
+        metric: paired_cluster_interval(
+            list(left.values()),
+            list(right.values()),
+            metric,
+            bootstrap["seed"],
+            bootstrap["samples"],
+        )
+        for metric in ("hit_at_1", "hit_at_3", "hit_at_20", "reciprocal_rank")
+    }
+
+
+def run_train(
+    config_path: Path,
+    out: Path,
+    *,
+    preflight_fn=None,
+    load_split=corpus_lint.load_split,
+    evaluate_policies=None,
+    metadata_fn=environment_metadata,
+) -> dict:
+    config, config_sha256 = _config(config_path)
+    preflight_fn = preflight_fn or preflight_inputs
+    preflight = preflight_fn(config_path, "train")
+    split_data = load_baseline_split(
+        _corpus_root(config_path, config), "train", loader=load_split
+    )
+    if preflight:
+        validate_split_counts(
+            split_data, preflight["corpus_manifest"]["counts"]["train"], "train"
+        )
+    started = time.perf_counter_ns()
+    b0 = {
+        tokenizer_name: _evaluate_b0(split_data, tokenizer_name)
+        for tokenizer_name in TOKENIZER_NAMES
+    }
+    for item in b0.values():
+        item["confidence"] = _confidence(item["queries"], config)
+    policies = (evaluate_policies or evaluate_split_policies)(split_data)
+    selected = select_policy(policies)
+    status = "POLICY_SELECTED" if selected is not None else "CANDIDATE_NO_GO"
+    report = {
+        "baseline_version": config["baseline_version"],
+        "status": status,
+        "split": "train",
+        "corpus_hash": config["corpus"]["corpus_hash"],
+        "config_sha256": config_sha256,
+        "environment": metadata_fn(
+            package_names=("model2vec", "numpy", "tokenizers"), provider=None
+        ),
+        "diagnostic_timings_ms": {
+            "total": (time.perf_counter_ns() - started) / 1_000_000
+        },
+        "b0": b0,
+        "b0_comparison": {
+            "counts": compare_results(
+                b0["current_ascii"]["queries"], b0["unicode_nfc"]["queries"]
+            ),
+            "paired_confidence": _paired_confidence(
+                b0["current_ascii"]["queries"], b0["unicode_nfc"]["queries"], config
+            ),
+        },
+        "policies": policies,
+        "selected_policy_id": selected["policy_id"] if selected else None,
+    }
+    out = Path(out)
+    train_sha256 = write_json(out / "train-report.json", report)
+    selected_payload = {
+        "baseline_version": config["baseline_version"],
+        "config_sha256": config_sha256,
+        "corpus_hash": config["corpus"]["corpus_hash"],
+        "train_report_sha256": train_sha256,
+        "selected": (
+            {
+                key: selected[key]
+                for key in (
+                    "policy_id", "tokenizer", "lexical_reserve", "semantic_reserve"
+                )
+            }
+            if selected else None
+        ),
+        "gate_errors": [] if selected else [
+            error for policy in policies for error in policy["gate_errors"]
+        ],
+    }
+    write_json(out / "selected-policy.json", selected_payload)
+    if selected is None:
+        write_json(
+            out / "manifest.json", build_baseline_manifest(out, "CANDIDATE_NO_GO")
+        )
     return report
 
 
-def evaluate_all_candidate_policies(
-    split_data: dict,
-    semantic_rankings: dict[str, list[tuple[str, float]]],
-) -> list[dict]:
-    return [
-        evaluate_candidate_policy(
-            split_data, tokenizer_name, lexical_reserve, semantic_rankings
-        )
-        for tokenizer_name, lexical_reserve in policy_grid()
-    ]
-
-
-def score_query(
-    query: dict,
-    ranking: list[str],
-    protected: set[str],
-    notes_by_id: dict[str, dict],
-) -> dict:
-    if len(ranking) != len(set(ranking)):
-        raise BaselineError(f"{query['id']}: duplicate note in ranking")
-    positions = {note_id: index for index, note_id in enumerate(ranking, 1)}
-    gold = tuple(query["gold"])
-    gold_ranks = {note_id: positions.get(note_id) for note_id in gold}
-    present_ranks = [rank for rank in gold_ranks.values() if rank is not None]
-    first_gold_rank = min(present_ranks) if present_ranks else None
-    hard_ids = [item["note_id"] for item in query["hard_negatives"]]
-    hard_ranks = {note_id: positions.get(note_id) for note_id in hard_ids}
-
-    result = {
-        "query_id": query["id"],
-        "scenario_group": query["scenario_group"],
-        "language": query["language"],
-        "contrast_families": list(query["contrast_families"]),
-        "provenance": query["provenance"],
-        "ranking": list(ranking),
-        "ranking_size": len(ranking),
-        "protected": sorted(protected),
-        "gold_ranks": gold_ranks,
-        "hard_negative_ranks": hard_ranks,
-        "first_gold_rank": first_gold_rank,
-        "reciprocal_rank": 1.0 / first_gold_rank if first_gold_rank else 0.0,
-        "zero_candidates": not ranking,
-        "top1_hard_negative": (
-            ranking[0] if ranking and ranking[0] in set(hard_ids) else None
-        ),
-        "eligible": (
-            len([note_id for note_id in ranking if note_id not in protected]) >= 2
-            and not set(gold).intersection(protected)
-        ),
-    }
-    for k in (1, 3, 20):
-        top = set(ranking[:k])
-        result[f"hit_at_{k}"] = bool(top.intersection(gold))
-        same = {
-            note_id for note_id in gold
-            if notes_by_id[note_id]["language"] == query["language"]
+def finish_dev(candidate_report: dict, reranker_factory: Callable) -> dict:
+    if candidate_report["gate_errors"]:
+        return {
+            "status": "CANDIDATE_NO_GO",
+            "gate_errors": list(candidate_report["gate_errors"]),
         }
-        cross = set(gold).difference(same)
-        result[f"same_language_gold_at_{k}"] = bool(top.intersection(same))
-        result[f"cross_language_gold_at_{k}"] = bool(top.intersection(cross))
-        result[f"both_golds_at_{k}"] = bool(gold) and set(gold).issubset(top)
-    return result
+    return {"status": "B1_PASS", "reranker": reranker_factory()}
 
 
-def score_rerank(
-    query: dict,
-    ranked_scores: list[tuple[str, float | None]],
-    protected: set[str],
-    notes_by_id: dict[str, dict],
+def run_dev(
+    config_path: Path,
+    out: Path,
+    model_manifest: Path,
+    *,
+    preflight_fn=None,
+    load_split=corpus_lint.load_split,
+    evaluate_policy=None,
+    reranker_factory=semantic_onnx.OnnxReranker.load,
+    metadata_fn=environment_metadata,
 ) -> dict:
-    ranking = [note_id for note_id, _score in ranked_scores]
-    result = score_query(query, ranking, protected, notes_by_id)
-    result["ranked_scores"] = [
-        {"note_id": note_id, "score": score} for note_id, score in ranked_scores
+    config, config_sha256 = _config(config_path)
+    out = Path(out)
+    selected_artifact = _read_json_file(out / "selected-policy.json", "selected policy")
+    if selected_artifact.get("config_sha256") != config_sha256:
+        raise SetupError("selected-policy config_sha256 mismatch")
+    require_new_output(out / "dev-report.json")
+    selected = selected_artifact.get("selected")
+    if selected is None:
+        raise SetupError("selected-policy has no selected candidate policy")
+    train_path = out / "train-report.json"
+    if _sha256_file(train_path) != selected_artifact.get("train_report_sha256"):
+        raise SetupError("train-report hash mismatch")
+
+    preflight_fn = preflight_fn or preflight_inputs
+    preflight = preflight_fn(config_path, "dev", model_manifest)
+    split_data = load_baseline_split(
+        _corpus_root(config_path, config), "dev", loader=load_split
+    )
+    if preflight:
+        validate_split_counts(
+            split_data, preflight["corpus_manifest"]["counts"]["dev"], "dev"
+        )
+    started = time.perf_counter_ns()
+    b0 = {
+        tokenizer_name: _evaluate_b0(split_data, tokenizer_name)
+        for tokenizer_name in TOKENIZER_NAMES
+    }
+    for item in b0.values():
+        item["confidence"] = _confidence(item["queries"], config)
+
+    candidate_report = (evaluate_policy or evaluate_split_policy)(
+        split_data, selected["tokenizer"], selected["lexical_reserve"]
+    )
+    expected_queries = (
+        preflight.get("corpus_manifest", {})
+        .get("counts", {})
+        .get("dev", {})
+        .get("queries", len(split_data["queries"]))
+        if preflight
+        else len(split_data["queries"])
+    )
+    candidate_report["gate_errors"] = candidate_gate(
+        candidate_report, expected_queries=expected_queries
+    )
+    b1_results = _candidate_query_results(split_data, candidate_report)
+    candidate_report["metrics"] = aggregate_results(split_data["queries"], b1_results)
+    candidate_report["confidence"] = _confidence(b1_results, config)
+
+    base_report = {
+        "baseline_version": config["baseline_version"],
+        "split": "dev",
+        "corpus_hash": config["corpus"]["corpus_hash"],
+        "config_sha256": config_sha256,
+        "environment": metadata_fn(
+            package_names=("model2vec", "numpy", "onnxruntime", "tokenizers"),
+            provider=config["reranker"]["provider"],
+        ),
+        "b0": b0,
+        "b1": candidate_report,
+    }
+    if candidate_report["gate_errors"]:
+        report = {
+            **base_report,
+            "status": "CANDIDATE_NO_GO",
+            "b2": None,
+            "diagnostic_timings_ms": {
+                "total": (time.perf_counter_ns() - started) / 1_000_000
+            },
+        }
+        write_json(out / "dev-report.json", report)
+        write_json(
+            out / "manifest.json", build_baseline_manifest(out, "CANDIDATE_NO_GO")
+        )
+        return report
+
+    model_dir = REPO_ROOT / config["reranker"]["model_dir"]
+    try:
+        reranker = reranker_factory(model_dir, config["reranker"]["max_length"])
+    except semantic_onnx.OnnxSetupError as exc:
+        raise SetupError(str(exc)) from exc
+    notes_by_id = {note["id"]: note for note in split_data["notes"]}
+    note_texts = {note_id: note["text"] for note_id, note in notes_by_id.items()}
+    candidate_rows = {row["query_id"]: row for row in candidate_report["queries"]}
+    repeated_rankings = []
+    first_results = None
+    for _repeat in range(20):
+        results = {}
+        rank_map = {}
+        for query in split_data["queries"]:
+            row = candidate_rows[query["id"]]
+            ranked_scores = semantic_onnx.rerank(
+                query["text"], row["candidates"], note_texts,
+                set(row["protected"]), reranker.score,
+            )
+            rank_map[query["id"]] = [note_id for note_id, _score in ranked_scores]
+            results[query["id"]] = score_rerank(
+                query, ranked_scores, set(row["protected"]), notes_by_id
+            )
+        validate_query_coverage([query["id"] for query in split_data["queries"]], results)
+        repeated_rankings.append(rank_map)
+        if first_results is None:
+            first_results = results
+    ranking_sha256 = assert_repeatable_rankings(repeated_rankings)
+    b2 = {
+        "metrics": aggregate_results(split_data["queries"], first_results),
+        "confidence": _confidence(first_results, config),
+        "queries": first_results,
+        "comparisons": {
+            tokenizer_name: compare_results(item["queries"], first_results)
+            for tokenizer_name, item in b0.items()
+        },
+        "paired_confidence": {
+            tokenizer_name: _paired_confidence(item["queries"], first_results, config)
+            for tokenizer_name, item in b0.items()
+        },
+        "determinism": {"repeats": 20, "ranking_sha256": ranking_sha256},
+    }
+    report = {
+        **base_report,
+        "status": "BASELINE_COMPLETE",
+        "b2": b2,
+        "diagnostic_timings_ms": {
+            "total": (time.perf_counter_ns() - started) / 1_000_000
+        },
+    }
+    write_json(out / "dev-report.json", report)
+    write_json(
+        out / "manifest.json", build_baseline_manifest(out, "BASELINE_COMPLETE")
+    )
+    return report
+
+
+def build_baseline_manifest(root: Path, status: str) -> dict:
+    root = Path(root)
+    if status == "BASELINE_COMPLETE":
+        names = _COMPLETE_FILES
+    elif status == "CANDIDATE_NO_GO":
+        names = tuple(
+            name for name in _COMPLETE_FILES
+            if name != "dev-report.json" or (root / name).exists()
+        )
+    else:
+        raise SetupError(f"invalid terminal status: {status}")
+    files = {}
+    for name in names:
+        path = root / name
+        if not path.is_file():
+            raise SetupError(f"missing baseline artifact: {name}")
+        files[name] = _sha256_file(path)
+    return {"baseline_version": "v1", "files": files, "status": status}
+
+
+def _cross_file_errors(root: Path) -> list[str]:
+    errors = []
+    try:
+        config, config_sha256 = _config(root / "config.json")
+        train = _read_json_file(root / "train-report.json", "train report")
+        selected = _read_json_file(root / "selected-policy.json", "selected policy")
+        model = _read_json_file(root / "model-manifest.json", "model manifest")
+        corpus_hash = config["corpus"]["corpus_hash"]
+        for label, artifact in (("train-report", train), ("selected-policy", selected)):
+            if artifact.get("config_sha256") != config_sha256:
+                errors.append(f"{label} config_sha256 mismatch")
+            if artifact.get("corpus_hash") != corpus_hash:
+                errors.append(f"{label} corpus_hash mismatch")
+        if selected.get("train_report_sha256") != _sha256_file(root / "train-report.json"):
+            errors.append("selected-policy train_report_sha256 mismatch")
+        dev_path = root / "dev-report.json"
+        if dev_path.exists():
+            dev = _read_json_file(dev_path, "dev report")
+            if dev.get("config_sha256") != config_sha256:
+                errors.append("dev-report config_sha256 mismatch")
+            if dev.get("corpus_hash") != corpus_hash:
+                errors.append("dev-report corpus_hash mismatch")
+        reranker = config.get("reranker", {})
+        for key in ("repository", "revision", "provider", "files"):
+            if model.get(key) != reranker.get(key):
+                errors.append(f"model-manifest {key} mismatch")
+    except (KeyError, SetupError) as exc:
+        errors.append(str(exc))
+    return errors
+
+
+def check_baseline_artifacts(root: Path) -> list[str]:
+    root = Path(root)
+    path = root / "manifest.json"
+    if not path.is_file():
+        return ["manifest.json missing"]
+    try:
+        declared = json.loads(path.read_text(encoding="utf-8"))
+        computed = build_baseline_manifest(root, declared["status"])
+    except (json.JSONDecodeError, KeyError, SetupError) as exc:
+        return [str(exc)]
+    if path.read_bytes() != canonical_json_bytes(declared):
+        errors = ["manifest.json is not canonical JSON"]
+    else:
+        errors = []
+    for name in computed["files"]:
+        artifact_path = root / name
+        try:
+            value = json.loads(artifact_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            errors.append(f"{name} invalid JSON: {exc}")
+            continue
+        if artifact_path.read_bytes() != canonical_json_bytes(value):
+            errors.append(f"{name} is not canonical JSON")
+    # Hash and cross-file identity checks run even when canonicality already failed.
+    if declared.get("baseline_version") != computed["baseline_version"]:
+        errors.append("baseline_version mismatch")
+    if set(declared.get("files", {})) != set(computed["files"]):
+        errors.append("manifest file set mismatch")
+    for name, digest in computed["files"].items():
+        if declared.get("files", {}).get(name) != digest:
+            errors.append(f"{name} hash mismatch")
+    errors.extend(_cross_file_errors(root))
+    return errors
+
+
+def _ratio(counts: dict, key: str) -> str:
+    return f"{counts[key]}/{counts['queries']}"
+
+
+def _slice_table(title: str, slices: dict) -> list[str]:
+    if not slices:
+        return []
+    lines = ["", f"### {title}", "", "| Slice | Top-1 | Recall@3 | Recall@20 |", "|---|---:|---:|---:|"]
+    for name, counts in sorted(slices.items()):
+        lines.append(
+            f"| {name} | {_ratio(counts, 'hit_at_1')} | "
+            f"{_ratio(counts, 'hit_at_3')} | {_ratio(counts, 'hit_at_20')} |"
+        )
+    return lines
+
+
+def render_evidence(train_report: dict, dev_report: dict | None, manifest: dict) -> str:
+    current = train_report["b0"]["current_ascii"]["metrics"]["overall"]
+    unicode = train_report["b0"]["unicode_nfc"]["metrics"]["overall"]
+    lines = [
+        "# Evidence — Semantic Baseline v1",
+        "",
+        f"**Status:** `{manifest['status']}`  ",
+        f"**Selected policy:** `{train_report.get('selected_policy_id')}`",
+        "",
+        "## Train lexical references",
+        "",
+        f"- B0-current Recall@20: **{_ratio(current, 'hit_at_20')}**",
+        f"- B0-unicode Recall@20: **{_ratio(unicode, 'hit_at_20')}**",
     ]
-    scored = [(note_id, score) for note_id, score in ranked_scores if score is not None]
-    result["semantic_top1_top2_margin"] = (
-        scored[0][1] - scored[1][1] if len(scored) >= 2 else None
-    )
-    hard_ids = {item["note_id"] for item in query["hard_negatives"]}
-    hard_scores = [score for note_id, score in scored if note_id in hard_ids]
-    result["semantic_top1_best_hard_margin"] = (
-        scored[0][1] - max(hard_scores) if scored and hard_scores else None
-    )
-    return result
-
-
-def _summary(rows: list[dict]) -> dict:
-    count = len(rows)
-    return {
-        "queries": count,
-        "hit_at_1": sum(row["hit_at_1"] for row in rows),
-        "hit_at_3": sum(row["hit_at_3"] for row in rows),
-        "hit_at_20": sum(row["hit_at_20"] for row in rows),
-        "mean_reciprocal_rank": (
-            sum(row["reciprocal_rank"] for row in rows) / count if count else 0.0
-        ),
-        "zero_candidates": sum(row["zero_candidates"] for row in rows),
-        "same_language_gold_at_20": sum(
-            row["same_language_gold_at_20"] for row in rows
-        ),
-        "cross_language_gold_at_20": sum(
-            row["cross_language_gold_at_20"] for row in rows
-        ),
-        "both_golds_at_20": sum(row["both_golds_at_20"] for row in rows),
-        "top1_hard_negative": sum(
-            row["top1_hard_negative"] is not None for row in rows
-        ),
-        "eligible": sum(row["eligible"] for row in rows),
-    }
-
-
-def aggregate_results(queries: list[dict], results: dict[str, dict]) -> dict:
-    expected = [query["id"] for query in queries]
-    if len(expected) != len(set(expected)) or set(expected) != set(results):
-        raise SetupError("query results do not exactly cover the input query IDs")
-
-    def rows_for(predicate):
-        return [results[query["id"]] for query in queries if predicate(query)]
-
-    languages = sorted({query["language"] for query in queries})
-    families = sorted({family for query in queries for family in query["contrast_families"]})
-    provenances = sorted({query["provenance"] for query in queries})
-    return {
-        "overall": _summary(rows_for(lambda _query: True)),
-        "languages": {
-            language: _summary(rows_for(lambda query, lang=language: query["language"] == lang))
-            for language in languages
-        },
-        "families": {
-            family: _summary(rows_for(
-                lambda query, fam=family: fam in query["contrast_families"]
-            ))
-            for family in families
-        },
-        "provenance": {
-            provenance: _summary(rows_for(
-                lambda query, prov=provenance: query["provenance"] == prov
-            ))
-            for provenance in provenances
-        },
-    }
-
-
-def compare_results(base: dict[str, dict], reranked: dict[str, dict]) -> dict:
-    if set(base) != set(reranked):
-        raise BaselineError("paired query IDs differ")
-    corrections = sorted(
-        query_id for query_id in base
-        if not base[query_id]["hit_at_1"]
-        and reranked[query_id]["hit_at_20"]
-        and reranked[query_id]["hit_at_1"]
-    )
-    regressions = sorted(
-        query_id for query_id in base
-        if base[query_id]["hit_at_1"] and not reranked[query_id]["hit_at_1"]
-    )
-    return {
-        "corrections": len(corrections),
-        "correction_query_ids": corrections,
-        "regressions": len(regressions),
-        "regression_query_ids": regressions,
-    }
-
-
-def _group_rows(rows: list[dict]) -> dict[str, list[dict]]:
-    groups = {}
-    for row in rows:
-        groups.setdefault(row["scenario_group"], []).append(row)
-    return groups
-
-
-def _percentile_interval(values: list[float]) -> tuple[float, float]:
-    ordered = sorted(values)
-    lower = math.floor(0.025 * (len(ordered) - 1))
-    upper = math.ceil(0.975 * (len(ordered) - 1))
-    return ordered[lower], ordered[upper]
-
-
-def cluster_interval(
-    rows: list[dict], metric: str, seed: int, samples: int
-) -> dict:
-    if not rows or samples < 1:
-        raise BaselineError("cluster interval requires rows and positive samples")
-    groups = _group_rows(rows)
-    group_ids = sorted(groups)
-    rng = random.Random(seed)
-    estimates = []
-    for _ in range(samples):
-        sampled_groups = rng.choices(group_ids, k=len(group_ids))
-        values = [
-            row[metric]
-            for group_id in sampled_groups
-            for row in groups[group_id]
+    if dev_report is None:
+        lines += ["", "B2 was not run because candidate retrieval did not clear its gate."]
+    else:
+        b1 = dev_report["b1"]["overall"]
+        lines += [
+            "", "## Dev candidate gate", "",
+            f"- B1 Recall@20: **{_ratio(b1, 'hit_at_20')}**",
+            f"- Safety Recall@20: **{_ratio(dev_report['b1']['safety'], 'hit_at_20')}**",
+            f"- Identifier Recall@20: **{_ratio(dev_report['b1']['identifier'], 'hit_at_20')}**",
         ]
-        estimates.append(sum(values) / len(values))
-    lower, upper = _percentile_interval(estimates)
-    return {
-        "observed": sum(row[metric] for row in rows) / len(rows),
-        "lower": lower,
-        "upper": upper,
-        "groups": len(groups),
-        "samples": samples,
-        "seed": seed,
-    }
+        if dev_report.get("b2"):
+            b2 = dev_report["b2"]["metrics"]
+            overall = b2["overall"]
+            lines += [
+                "", "## Dev zero-shot reranking", "",
+                f"- B2 Top-1: **{_ratio(overall, 'hit_at_1')}**",
+                f"- B2 Recall@3: **{_ratio(overall, 'hit_at_3')}**",
+                f"- B2 MRR: **{overall['mean_reciprocal_rank']:.6f}**",
+                f"- Ranking determinism: **{dev_report['b2']['determinism']['repeats']} repeats**, "
+                f"`{dev_report['b2']['determinism']['ranking_sha256']}`",
+            ]
+            lines += _slice_table("By language", b2.get("languages", {}))
+            lines += _slice_table("By contrast family", b2.get("families", {}))
+        else:
+            lines += ["", "B2 was not run because candidate retrieval did not clear its gate."]
+    lines += [
+        "", "## Environment", "",
+        "Windows timings are diagnostic; Linux x86-64 performance remains uncertified.", "",
+    ]
+    return "\n".join(lines)
 
 
-
-def paired_cluster_interval(
-    left: list[dict],
-    right: list[dict],
-    metric: str,
-    seed: int,
-    samples: int,
-) -> dict:
-    left_by_id = {row["query_id"]: row for row in left}
-    right_by_id = {row["query_id"]: row for row in right}
-    if set(left_by_id) != set(right_by_id):
-        raise BaselineError("paired query IDs differ")
-    deltas = []
-    for query_id in sorted(left_by_id):
-        left_row, right_row = left_by_id[query_id], right_by_id[query_id]
-        if left_row["scenario_group"] != right_row["scenario_group"]:
-            raise BaselineError(f"{query_id}: paired scenario groups differ")
-        deltas.append({
-            "query_id": query_id,
-            "scenario_group": left_row["scenario_group"],
-            metric: right_row[metric] - left_row[metric],
-        })
-    return cluster_interval(deltas, metric, seed, samples)
-
-
-def canonical_json_bytes(value) -> bytes:
-    return (
-        json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-        + "\n"
-    ).encode("utf-8")
-
-
-def write_json(path: Path, value) -> str:
-    payload = canonical_json_bytes(value)
+def _write_text(path: Path, text: str) -> None:
     path = Path(path)
+    payload = text if text.endswith("\n") else text + "\n"
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
-        with os.fdopen(fd, "wb") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
@@ -575,4 +749,67 @@ def write_json(path: Path, value) -> str:
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
-    return hashlib.sha256(payload).hexdigest()
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    preflight_parser = commands.add_parser("preflight")
+    preflight_parser.add_argument("--config", type=Path, required=True)
+    preflight_parser.add_argument("--model-manifest", type=Path, required=True)
+
+    train_parser = commands.add_parser("train")
+    train_parser.add_argument("--config", type=Path, required=True)
+    train_parser.add_argument("--out", type=Path, required=True)
+
+    dev_parser = commands.add_parser("dev")
+    dev_parser.add_argument("--config", type=Path, required=True)
+    dev_parser.add_argument("--out", type=Path, required=True)
+    dev_parser.add_argument("--model-manifest", type=Path, required=True)
+
+    check_parser = commands.add_parser("check")
+    check_parser.add_argument("--config", type=Path, required=True)
+    check_parser.add_argument("--out", type=Path, required=True)
+
+    render_parser = commands.add_parser("render")
+    render_parser.add_argument("--out", type=Path, required=True)
+    render_parser.add_argument("--evidence", type=Path, required=True)
+
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "preflight":
+            result = preflight_inputs(args.config, "dev", args.model_manifest)
+            print(f"preflight: PASS corpus_hash={result['corpus_manifest']['corpus_hash']}")
+            return 0
+        if args.command == "train":
+            result = run_train(args.config, args.out)
+            print(f"baseline train: {result['status']}")
+            return 3 if result["status"] == "CANDIDATE_NO_GO" else 0
+        if args.command == "dev":
+            result = run_dev(args.config, args.out, args.model_manifest)
+            print(f"baseline dev: {result['status']}")
+            return 3 if result["status"] == "CANDIDATE_NO_GO" else 0
+        if args.command == "check":
+            config_path = args.out / "config.json"
+            if args.config.resolve() != config_path.resolve():
+                raise SetupError("--config must name <out>/config.json")
+            errors = check_baseline_artifacts(args.out)
+            if errors:
+                raise SetupError("; ".join(errors))
+            print("baseline artifacts: PASS")
+            return 0
+        train = _read_json_file(args.out / "train-report.json", "train report")
+        dev_path = args.out / "dev-report.json"
+        dev = _read_json_file(dev_path, "dev report") if dev_path.exists() else None
+        manifest = _read_json_file(args.out / "manifest.json", "baseline manifest")
+        _write_text(args.evidence, render_evidence(train, dev, manifest))
+        print(f"baseline evidence: wrote {args.evidence}")
+        return 0
+    except (BaselineError, OSError) as exc:
+        print(f"baseline: FAILED: {exc}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

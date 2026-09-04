@@ -33,7 +33,8 @@
 - Modify `.gitattributes` — pin baseline artifacts to LF.
 - Create `requirements-semantic-baseline.txt` — exact direct dependency pins.
 - Create `scripts/fixtures/vector-semantics/baseline-v1/config.json` — immutable baseline inputs and policy grid.
-- Create `scripts/semantic_baseline.py` — corpus adapter, B0/B1, metrics, state machine, artifact output.
+- Create `scripts/semantic_baseline_core.py` — pure corpus adapter, B0/B1 policy, metric, bootstrap, and canonical-JSON logic.
+- Create `scripts/semantic_baseline.py` — preflight, train/dev state machine, artifact checks, evidence rendering, and CLI.
 - Create `scripts/semantic_onnx.py` — lazy ONNX/tokenizer boundary and protected-prefix reranking.
 - Create `scripts/fetch_reranker.py` — revision-pinned, hash-checking online setup.
 - Create `scripts/test_semantic_baseline.py` — pure behavior and CLI/state tests.
@@ -906,6 +907,7 @@ git commit -m "feat(recall): add pinned zero-shot reranker boundary"
 
 **Files:**
 - Modify: `scripts/semantic_baseline.py`
+- Create: `scripts/semantic_baseline_core.py` (extract the already-green pure functions before adding orchestration)
 - Modify: `scripts/test_semantic_baseline.py`
 - Modify: `scripts/test_semantic_onnx.py`
 

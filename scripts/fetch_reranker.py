@@ -17,8 +17,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _identity(path: Path) -> dict:
-    payload = path.read_bytes()
-    return {"bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
+    with path.open("rb") as handle:
+        digest = hashlib.file_digest(handle, "sha256").hexdigest()
+    return {"bytes": path.stat().st_size, "sha256": digest}
 
 
 def fetch_files(model_spec: dict, destination: Path, opener=urlopen) -> dict:

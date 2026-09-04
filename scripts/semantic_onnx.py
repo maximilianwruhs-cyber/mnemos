@@ -21,8 +21,9 @@ class OnnxSetupError(RuntimeError):
 
 
 def _identity(path: Path) -> dict:
-    payload = path.read_bytes()
-    return {"bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
+    with path.open("rb") as handle:
+        digest = hashlib.file_digest(handle, "sha256").hexdigest()
+    return {"bytes": path.stat().st_size, "sha256": digest}
 
 
 def verify_environment(
