@@ -119,6 +119,19 @@ class CandidateUnionTests(unittest.TestCase):
         )
         self.assertEqual(got, [note_id for note_id, _score in lexical])
 
+    def test_twenty_zero_does_not_semantically_backfill_short_lexical_results(self):
+        class ExplodingRanking:
+            def __iter__(self):
+                raise AssertionError("semantic ranking was read")
+
+        got = baseline.union_candidates(
+            [("n-a", 1.0), ("n-b", 0.5)],
+            ExplodingRanking(),
+            (),
+            lexical_reserve=20,
+        )
+        self.assertEqual(got, ["n-a", "n-b"])
+
 
 class PotionRankingTests(unittest.TestCase):
     def test_ranks_all_notes_by_cosine_then_note_id_without_floor(self):

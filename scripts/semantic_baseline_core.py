@@ -194,7 +194,7 @@ def union_candidates(
             seen.add(note_id)
             lexical_count += 1
 
-    if len(out) < k:
+    if len(out) < k and lexical_reserve < k:
         for note_id, _score in semantic:
             if note_id in seen:
                 continue
