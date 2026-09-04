@@ -1143,6 +1143,29 @@ python -m venv .cache/semantic-baseline-venv
 Expected: the four direct package versions match config. Record the complete installed package map
 in `model-manifest.json`; do not add the virtual environment to git.
 
+The Potion model is intentionally gitignored and therefore absent from a fresh worktree. Materialize
+it with the pinned baseline environment before preflight:
+
+```bash
+.cache/semantic-baseline-venv/Scripts/python.exe scripts/vectors/fetch_model.py
+sha256sum scripts/vectors/potion-base-8M/config.json \
+  scripts/vectors/potion-base-8M/modules.json \
+  scripts/vectors/potion-base-8M/tokenizer.json \
+  scripts/vectors/potion-base-8M/model.safetensors
+```
+
+Expected hashes, in command order:
+
+```text
+f68ab920d7257faf6cbb4c8da5d96cc41dbbe7842b7043d92f0c2c3d3deef942
+0858e4a5e4c99ece0f93eae7660195497a2667a7cfca3dc3223b68df19097056
+273ca9e28ec6990aea6206b0364443754d87e87a5dd28e94026ea9999ba3bf62
+f65d0f325faadc1e121c319e2faa41170d3fa07d8c89abd48ca5358d9a223de2
+```
+
+In a local worktree an existing sibling cache may be copied instead of downloaded, but the same
+four hashes are mandatory before any train/dev run.
+
 - [ ] **Step 2: Fetch and verify the pinned reranker**
 
 ```bash
