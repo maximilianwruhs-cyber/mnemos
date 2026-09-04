@@ -33,7 +33,8 @@
 - Modify `.gitattributes` — pin baseline artifacts to LF.
 - Create `requirements-semantic-baseline.txt` — exact direct dependency pins.
 - Create `scripts/fixtures/vector-semantics/baseline-v1/config.json` — immutable baseline inputs and policy grid.
-- Create `scripts/semantic_baseline.py` — corpus adapter, B0/B1, metrics, state machine, artifact output.
+- Create `scripts/semantic_baseline_core.py` — pure corpus adapter, B0/B1 policy, metric, bootstrap, and canonical-JSON logic.
+- Create `scripts/semantic_baseline.py` — preflight, train/dev state machine, artifact checks, evidence rendering, and CLI.
 - Create `scripts/semantic_onnx.py` — lazy ONNX/tokenizer boundary and protected-prefix reranking.
 - Create `scripts/fetch_reranker.py` — revision-pinned, hash-checking online setup.
 - Create `scripts/test_semantic_baseline.py` — pure behavior and CLI/state tests.
@@ -182,7 +183,7 @@ class LexicalBaselineTests(unittest.TestCase):
     def test_unicode_tokens_keep_german_words_whole(self):
         self.assertEqual(
             baseline.unicode_tokens("Prüfen für größere Schlüssel"),
-            ["prüfen", "für", "größere", "schlüssel"],
+            ["prüfen", "für", "grössere", "schlüssel"],
         )
 
     def test_current_ascii_behavior_remains_visible(self):
@@ -906,6 +907,7 @@ git commit -m "feat(recall): add pinned zero-shot reranker boundary"
 
 **Files:**
 - Modify: `scripts/semantic_baseline.py`
+- Create: `scripts/semantic_baseline_core.py` (extract the already-green pure functions before adding orchestration)
 - Modify: `scripts/test_semantic_baseline.py`
 - Modify: `scripts/test_semantic_onnx.py`
 
@@ -1142,6 +1144,29 @@ python -m venv .cache/semantic-baseline-venv
 
 Expected: the four direct package versions match config. Record the complete installed package map
 in `model-manifest.json`; do not add the virtual environment to git.
+
+The Potion model is intentionally gitignored and therefore absent from a fresh worktree. Materialize
+it with the pinned baseline environment before preflight:
+
+```bash
+.cache/semantic-baseline-venv/Scripts/python.exe scripts/vectors/fetch_model.py
+sha256sum scripts/vectors/potion-base-8M/config.json \
+  scripts/vectors/potion-base-8M/modules.json \
+  scripts/vectors/potion-base-8M/tokenizer.json \
+  scripts/vectors/potion-base-8M/model.safetensors
+```
+
+Expected hashes, in command order:
+
+```text
+f68ab920d7257faf6cbb4c8da5d96cc41dbbe7842b7043d92f0c2c3d3deef942
+0858e4a5e4c99ece0f93eae7660195497a2667a7cfca3dc3223b68df19097056
+273ca9e28ec6990aea6206b0364443754d87e87a5dd28e94026ea9999ba3bf62
+f65d0f325faadc1e121c319e2faa41170d3fa07d8c89abd48ca5358d9a223de2
+```
+
+In a local worktree an existing sibling cache may be copied instead of downloaded, but the same
+four hashes are mandatory before any train/dev run.
 
 - [ ] **Step 2: Fetch and verify the pinned reranker**
 

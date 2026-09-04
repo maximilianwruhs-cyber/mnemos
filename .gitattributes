@@ -5,3 +5,4 @@
 # to LF on every platform so the corpus_hash reproduces byte-for-byte.
 scripts/fixtures/vector-semantics/corpus-v2/**       text eol=lf
 scripts/fixtures/vector-semantics/corpus-v2-seeds/** text eol=lf
+scripts/fixtures/vector-semantics/baseline-v1/**      text eol=lf

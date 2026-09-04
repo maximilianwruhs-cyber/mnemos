@@ -198,6 +198,7 @@ class CorpusLintTests(unittest.TestCase):
     def test_manifest_check_roundtrips_and_detects_drift(self):
         root = self.build(base_data())
         _, manifest = corpus_lint.lint(root, enforce_floors=False)
+        self.assertIs(manifest["frozen"], True)
         (root / corpus_lint.MANIFEST).write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         _, recomputed = corpus_lint.lint(root, enforce_floors=False)
         self.assertEqual(corpus_lint.check_manifest(root, recomputed), [])
@@ -207,6 +208,18 @@ class CorpusLintTests(unittest.TestCase):
         (root / "train" / "notes.jsonl").write_bytes(corpus_lint.canonical_bytes(extra["train"]["notes"]))
         _, drifted = corpus_lint.lint(root, enforce_floors=False)
         self.assertTrue(corpus_lint.check_manifest(root, drifted))
+
+    def test_manifest_requires_frozen_marker(self):
+        root = self.build(base_data())
+        _, manifest = corpus_lint.lint(root, enforce_floors=False)
+        declared = {key: value for key, value in manifest.items() if key != "frozen"}
+        (root / corpus_lint.MANIFEST).write_text(
+            json.dumps(declared, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        self.assertIn(
+            "manifest.json frozen mismatch (declared != recomputed)",
+            corpus_lint.check_manifest(root, manifest),
+        )
 
     # --- determinism ---------------------------------------------------------
 
