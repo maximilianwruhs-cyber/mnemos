@@ -72,6 +72,15 @@ class IdentifierProtectionTests(unittest.TestCase):
         notes = [{"id": "n-wrong", "text": "Alarm H-171 is unrelated"}]
         self.assertEqual(baseline.protected_note_ids("fix H-17", notes, []), ())
 
+    def test_numeric_code_prefix_survives_german_hyphen_compound(self):
+        self.assertIn("h-17", baseline.identifier_tokens("H-17-Steuerungswarnung"))
+        self.assertIn("jr-7788", baseline.identifier_tokens("JR-7788-Lauf"))
+        notes = [{"id": "n-gold", "text": "Alarm H-17 meldet niedrigen Druck."}]
+        self.assertEqual(
+            baseline.protected_note_ids("Die H-17-Steuerungswarnung", notes, []),
+            ("n-gold",),
+        )
+
     def test_more_than_twenty_protected_notes_is_an_error(self):
         notes = [{"id": f"n-{index:02}", "text": "Code KX-4471"} for index in range(21)]
         with self.assertRaisesRegex(baseline.BaselineError, "identifier_budget_overflow"):

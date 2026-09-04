@@ -34,6 +34,10 @@ SAFETY_FAMILIES = frozenset({
 IDENTIFIER_LEXEME_RE = re.compile(
     r"(?<![A-Za-z0-9_.:/-])(?:--)?[A-Za-z0-9][A-Za-z0-9_.:/-]*(?![A-Za-z0-9_.:/-])"
 )
+COMPOUND_CODE_PREFIX_RE = re.compile(
+    r"(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9]*(?:[._-][A-Za-z0-9]*\d[A-Za-z0-9]*)+)(?=-[^\W\d_])",
+    re.UNICODE,
+)
 
 
 class BaselineError(ValueError):
@@ -103,17 +107,17 @@ def _is_identifier(token: str) -> bool:
 
 
 def identifier_tokens(text: str) -> tuple[str, ...]:
-    """Return sorted, exact identifier-like lexemes from text."""
+    """Return exact identifiers, including codes prefixed to hyphen compounds."""
     normalized = unicodedata.normalize("NFC", text).casefold()
-    return tuple(
-        sorted(
-            {
-                match.group(0)
-                for match in IDENTIFIER_LEXEME_RE.finditer(normalized)
-                if _is_identifier(match.group(0))
-            }
-        )
+    identifiers = {
+        match.group(0)
+        for match in IDENTIFIER_LEXEME_RE.finditer(normalized)
+        if _is_identifier(match.group(0))
+    }
+    identifiers.update(
+        match.group(1) for match in COMPOUND_CODE_PREFIX_RE.finditer(normalized)
     )
+    return tuple(sorted(identifiers))
 
 
 def protected_note_ids(
