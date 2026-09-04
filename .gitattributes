@@ -1,0 +1,7 @@
+# MNEMOS certification corpus (corpus-v2) is hash-frozen: its records are canonical
+# LF bytes with a trailing newline, and manifest.json pins their SHA-256. Any EOL
+# conversion (e.g. Windows autocrlf -> CRLF on checkout) would change the bytes and
+# break `python scripts/corpus_build.py --check`. Pin the frozen corpus and its seeds
+# to LF on every platform so the corpus_hash reproduces byte-for-byte.
+scripts/fixtures/vector-semantics/corpus-v2/**       text eol=lf
+scripts/fixtures/vector-semantics/corpus-v2-seeds/** text eol=lf

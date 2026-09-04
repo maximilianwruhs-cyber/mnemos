@@ -1,0 +1,26 @@
+{
+  "corpus_hash": "f71199596a8de64b748287211d34f26b4645c74d3e410afc11c86b527a1f8ba3",
+  "corpus_version": "v2",
+  "counts": {
+    "certification": {
+      "notes": 216,
+      "queries": 216
+    },
+    "dev": {
+      "notes": 104,
+      "queries": 156
+    },
+    "train": {
+      "notes": 56,
+      "queries": 84
+    }
+  },
+  "file_hashes": {
+    "certification/notes.jsonl": "13f3c3a4a0be9f2c1e544b10bb7eef8c4c04ab88b1568ef15411f4838e759f3c",
+    "certification/queries.jsonl": "b9f2e7befc0adf7ec3e199d6f8394b3aa5c4a33ec16430434ea1dced1f12445f",
+    "dev/notes.jsonl": "46a04b07352b70aed727f557eeb39592b1d8b99bca23b2750a8ba5795beb2cad",
+    "dev/queries.jsonl": "9e0f6235600f556b4fc5e0cfbabeca128cf696643b150bbccc3a8c78a2610cfb",
+    "train/notes.jsonl": "f7f4749212e755ccf24943cbd1dcf6684ef70199aceba8134c84fa964203a9ef",
+    "train/queries.jsonl": "340926619263b1c609f34faad1b2cc80d33c27b78601aa41487a73e38fb5dc40"
+  }
+}

@@ -1,0 +1,2614 @@
+[
+  {
+    "group": "key-rotation",
+    "split": "certification",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Rotating the JWT signing secret means minting a new key, publishing it to the verifier set, and retiring the old one after the overlap window.",
+      "de": "Das Rotieren des JWT-Signaturschlüssels bedeutet, einen neuen Schlüssel zu erzeugen, ihn an die Prüfermenge zu verteilen und den alten nach dem Überlappungsfenster stillzulegen."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Rotating the TLS server certificate means issuing a fresh chain from the CA and reloading the edge without touching any token-signing material.",
+        "de": "Das Rotieren des TLS-Serverzertifikats bedeutet, eine frische Kette von der CA auszustellen und den Edge neu zu laden, ohne das Token-Signaturmaterial anzufassen."
+      },
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Renewing the SSH host key regenerates the machine fingerprint that clients pin, unrelated to how bearer tokens are signed.",
+        "de": "Das Erneuern des SSH-Host-Schlüssels erzeugt den Maschinen-Fingerabdruck neu, den Clients anheften, unabhängig davon, wie Bearer-Token signiert werden."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I cycle the token-signing key without breaking live verification?",
+        "What is the rollover process for the credential that stamps our JWTs?",
+        "Steps to swap the secret used to sign bearer tokens?"
+      ],
+      "de": [
+        "Wie tausche ich den Token-Signierschlüssel, ohne die laufende Prüfung zu zerstören?",
+        "Wie läuft der Wechsel des Materials ab, das unsere JWTs stempelt?",
+        "Schritte, um das Geheimnis zum Signieren von Bearer-Token auszutauschen?"
+      ]
+    },
+    "rationale": "All three notes rotate a credential, but only the gold rotates the JWT signing secret; the TLS certificate and SSH host key are adjacent distractors a keyword match would surface."
+  },
+  {
+    "group": "log-retention",
+    "split": "certification",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Access logs are held for ninety days in warm storage, then automatically purged; nothing older survives the nightly sweep.",
+      "de": "Zugriffsprotokolle werden neunzig Tage im Warmspeicher gehalten und dann automatisch gelöscht; nichts Älteres übersteht den nächtlichen Durchlauf."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Aggregated metrics are downsampled after fifteen months, a separate lifecycle from raw request logging.",
+        "de": "Aggregierte Metriken werden nach fünfzehn Monaten heruntergerechnet, ein eigener Lebenszyklus getrennt von der reinen Anfrageprotokollierung."
+      },
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Nightly database backups are kept for one year in cold storage before rotation, independent of any log policy.",
+        "de": "Nächtliche Datenbank-Sicherungen werden ein Jahr im Kaltspeicher aufbewahrt, bevor sie rotieren, unabhängig von jeder Protokollrichtlinie."
+      }
+    ],
+    "queries": {
+      "en": [
+        "For how long can we still read yesterday's request trail?",
+        "When do entry logs age out and get erased?",
+        "What is the lifespan of the access audit trail before deletion?"
+      ],
+      "de": [
+        "Wie lange können wir die gestrige Anfragespur noch lesen?",
+        "Wann verfallen Zugangsprotokolle und werden entfernt?",
+        "Welche Lebensdauer hat die Zugriffs-Prüfspur vor der Tilgung?"
+      ]
+    },
+    "rationale": "The gold states the access-log retention window; the metrics and backup notes are neighbouring retention policies that share vocabulary but answer a different question."
+  },
+  {
+    "group": "cache-warmup",
+    "split": "certification",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "On each deploy the product catalog cache is pre-warmed by replaying the top queries so the first shoppers never hit a cold store.",
+      "de": "Bei jedem Deploy wird der Produktkatalog-Cache vorgewärmt, indem die häufigsten Abfragen erneut abgespielt werden, damit die ersten Kunden nie auf einen kalten Speicher treffen."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Purging the CDN edge cache forces a refetch of static assets and has nothing to do with priming the catalog tier.",
+        "de": "Das Leeren des CDN-Edge-Caches erzwingt ein erneutes Laden statischer Inhalte und hat nichts mit dem Vorwärmen der Katalogschicht zu tun."
+      },
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Resizing the cache cluster adds memory shards for headroom but does not populate them ahead of traffic.",
+        "de": "Das Vergrößern des Cache-Clusters fügt Speicher-Shards für Reserve hinzu, füllt sie aber nicht vor dem Verkehr."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do we make the catalog hot before customers arrive after a release?",
+        "What preloads the store lookups so early visitors avoid a miss?",
+        "Way to fill the product cache in advance of the first requests?"
+      ],
+      "de": [
+        "Wie machen wir den Katalog nach einem Release heiß, bevor Kunden kommen?",
+        "Was lädt die Shop-Abfragen vor, damit frühe Besucher keinen Fehltreffer haben?",
+        "Weg, um den Produkt-Cache vor den ersten Anfragen zu füllen?"
+      ]
+    },
+    "rationale": "Pre-warming the catalog cache is the gold; purging the CDN and resizing the cluster are adjacent cache operations that do not prime it."
+  },
+  {
+    "group": "oncall-handoff",
+    "split": "certification",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "At shift change the outgoing on-call briefs the incoming engineer on open incidents, silenced alerts, and fragile subsystems before handing over the pager.",
+      "de": "Beim Schichtwechsel informiert der abgehende Bereitschaftsdienst den ankommenden Ingenieur über offene Störungen, stummgeschaltete Alarme und fragile Teilsysteme, bevor der Pager übergeben wird."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Grading an incident's severity follows a fixed impact matrix decided during the incident, not at shift boundaries.",
+        "de": "Die Einstufung des Schweregrads einer Störung folgt einer festen Wirkungsmatrix und wird während der Störung entschieden, nicht an Schichtgrenzen."
+      },
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Building the escalation tree defines who is paged after a timeout, a static policy separate from the daily handover.",
+        "de": "Der Aufbau des Eskalationsbaums legt fest, wer nach einer Zeitüberschreitung alarmiert wird, eine statische Richtlinie getrennt von der täglichen Übergabe."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What must be communicated when the pager passes to the next engineer?",
+        "How is the rotation duty transferred at the end of a shift?",
+        "What does an on-call handover need to cover?"
+      ],
+      "de": [
+        "Was muss übermittelt werden, wenn der Pager an den nächsten Ingenieur geht?",
+        "Wie wird die Rotationspflicht am Ende einer Schicht übergeben?",
+        "Was muss eine Bereitschafts-Übergabe abdecken?"
+      ]
+    },
+    "rationale": "The gold is the shift handover briefing; severity grading and escalation-tree design are adjacent on-call topics, not the handover itself."
+  },
+  {
+    "group": "nightly-recon-cert",
+    "split": "certification",
+    "families": [
+      "success-vs-failure"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The nightly reconciliation finished cleanly: every ledger partition matched and the run was committed with a green summary.",
+      "de": "Der nächtliche Abgleich lief sauber durch: jede Buchungspartition stimmte überein und der Lauf wurde mit grüner Zusammenfassung bestätigt."
+    },
+    "hard": [
+      {
+        "family": "success-vs-failure",
+        "en": "The nightly reconciliation aborted midway: two ledger partitions diverged and the run was rolled back with a red summary.",
+        "de": "Der nächtliche Abgleich brach auf halbem Weg ab: zwei Buchungspartitionen wichen ab und der Lauf wurde mit roter Zusammenfassung zurückgerollt."
+      },
+      {
+        "family": "success-vs-failure",
+        "en": "The nightly reconciliation stalled half-finished: one partition never reported and the run still hangs awaiting a manual retry.",
+        "de": "Der nächtliche Abgleich blieb halbfertig stehen: eine Partition meldete nie und der Lauf hängt noch und wartet auf einen manuellen Neuversuch."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Did last night's ledger match job complete without problems?",
+        "Show me the reconciliation that ended in a healthy, committed state.",
+        "Which overnight balancing run came through green?"
+      ],
+      "de": [
+        "Ist der Abgleichslauf von letzter Nacht ohne Probleme fertig geworden?",
+        "Zeig mir den Abgleich, der in einem gesunden, bestätigten Zustand endete.",
+        "Welcher nächtliche Ausgleichslauf kam grün durch?"
+      ]
+    },
+    "rationale": "Same reconciliation job, three outcomes; only the committed green run answers a success query, over the aborted and the stalled variants."
+  },
+  {
+    "group": "deploy-outcome",
+    "split": "certification",
+    "families": [
+      "success-vs-failure"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The rollout succeeded: every replica reported healthy and traffic shifted fully to the new revision.",
+      "de": "Der Rollout gelang: jede Replik meldete sich gesund und der Verkehr wechselte vollständig auf die neue Revision."
+    },
+    "hard": [
+      {
+        "family": "success-vs-failure",
+        "en": "The rollout failed: replicas crash-looped, the controller halted, and traffic stayed pinned to the old revision.",
+        "de": "Der Rollout schlug fehl: Repliken gerieten in eine Absturzschleife, der Controller hielt an und der Verkehr blieb an die alte Revision geheftet."
+      },
+      {
+        "family": "success-vs-failure",
+        "en": "The rollout is still mid-flight: half the fleet is updated and the outcome remains undecided.",
+        "de": "Der Rollout ist noch mitten im Flug: die halbe Flotte ist aktualisiert und der Ausgang bleibt unentschieden."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which deployment came up fully healthy and took all the traffic?",
+        "Did the version push land with every instance green?",
+        "Report the release that shifted over cleanly to the new build."
+      ],
+      "de": [
+        "Welche Bereitstellung kam vollständig gesund hoch und übernahm den ganzen Verkehr?",
+        "Ist die Versionsausbringung mit jeder Instanz grün gelandet?",
+        "Nenne das Release, das sauber auf den neuen Build umschwenkte."
+      ]
+    },
+    "rationale": "The healthy, fully shifted rollout is the success; the crash-looped and the mid-flight rollouts are the failure and undecided contrasts."
+  },
+  {
+    "group": "backup-verify",
+    "split": "certification",
+    "families": [
+      "success-vs-failure"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "The restore drill passed: the archive unpacked, checksums matched, and the recovered database served reads correctly.",
+      "de": "Die Wiederherstellungsübung bestand: das Archiv entpackte sich, die Prüfsummen stimmten und die wiederhergestellte Datenbank lieferte Lesezugriffe korrekt."
+    },
+    "hard": [
+      {
+        "family": "success-vs-failure",
+        "en": "The restore drill failed: the archive was truncated, checksums mismatched, and recovery was impossible.",
+        "de": "Die Wiederherstellungsübung scheiterte: das Archiv war abgeschnitten, die Prüfsummen stimmten nicht und eine Wiederherstellung war unmöglich."
+      },
+      {
+        "family": "success-vs-failure",
+        "en": "The restore drill was skipped this cycle and never executed, so recoverability is unproven.",
+        "de": "Die Wiederherstellungsübung wurde diesen Zyklus übersprungen und nie ausgeführt, sodass die Wiederherstellbarkeit unbewiesen ist."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which recovery rehearsal came back verified and readable?",
+        "Did the backup test prove the data can actually be brought back?",
+        "Show the restore exercise that validated a clean database."
+      ],
+      "de": [
+        "Welche Wiederherstellungsprobe kam bestätigt und lesbar zurück?",
+        "Hat der Sicherungstest bewiesen, dass die Daten wirklich zurückgeholt werden können?",
+        "Zeig die Rückspielübung, die eine saubere Datenbank bestätigte."
+      ]
+    },
+    "rationale": "A passed restore drill answers the success query; the truncated failure and the skipped run are the contrasting outcomes."
+  },
+  {
+    "group": "payment-capture",
+    "split": "certification",
+    "families": [
+      "success-vs-failure"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The charge captured and settled: funds moved to the merchant account and the order was marked paid.",
+      "de": "Die Belastung wurde erfasst und abgewickelt: die Gelder gingen auf das Händlerkonto und die Bestellung wurde als bezahlt markiert."
+    },
+    "hard": [
+      {
+        "family": "success-vs-failure",
+        "en": "The charge was declined by the issuer: no funds moved and the order was left unpaid.",
+        "de": "Die Belastung wurde vom Aussteller abgelehnt: es flossen keine Gelder und die Bestellung blieb unbezahlt."
+      },
+      {
+        "family": "success-vs-failure",
+        "en": "The charge authorized but the capture timed out, leaving the payment pending and unsettled.",
+        "de": "Die Belastung wurde autorisiert, aber die Erfassung lief in eine Zeitüberschreitung und ließ die Zahlung schwebend und unabgewickelt."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which transaction actually moved money to the seller and closed as paid?",
+        "Did the customer's payment settle successfully to our account?",
+        "Show the order whose charge went through and cleared."
+      ],
+      "de": [
+        "Welche Transaktion hat tatsächlich Geld zum Verkäufer bewegt und als bezahlt abgeschlossen?",
+        "Ist die Zahlung des Kunden erfolgreich auf unser Konto abgewickelt worden?",
+        "Zeig die Bestellung, deren Belastung durchging und verrechnet wurde."
+      ]
+    },
+    "rationale": "The settled capture is the success; the declined charge and the timed-out pending capture are the failure contrasts."
+  },
+  {
+    "group": "permit-badge-restore",
+    "split": "certification",
+    "families": [
+      "permit-vs-prohibit"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "To restore access for a colleague whose entry credential was withdrawn, an approver files a reinstatement request; once countersigned, the security desk re-enables the tag the following morning.",
+      "de": "Um einem Kollegen mit eingezogenem Zutrittsausweis den Zugang zurückzugeben, stellt ein Genehmiger einen Wiederinkraftsetzungsantrag; nach Gegenzeichnung schaltet der Sicherheitsdienst die Marke am Folgetag wieder frei."
+    },
+    "hard": [
+      {
+        "family": "permit-vs-prohibit",
+        "en": "When a colleague must be permanently barred, the approver files a revocation notice; once countersigned, the security desk destroys the tag and blocks any re-enrollment.",
+        "de": "Wenn ein Kollege dauerhaft ausgeschlossen werden muss, reicht der Genehmiger eine Sperrmitteilung ein; nach Gegenzeichnung vernichtet der Sicherheitsdienst die Marke und blockiert jede Neuanmeldung."
+      },
+      {
+        "family": "permit-vs-prohibit",
+        "en": "While an inquiry is open, the security desk suspends the tag pending investigation, neither restoring access nor permanently barring the holder.",
+        "de": "Solange eine Untersuchung läuft, setzt der Sicherheitsdienst die Marke bis zur Klärung aus, ohne den Zugang zurückzugeben oder den Inhaber dauerhaft auszuschließen."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How does someone get their withdrawn building pass working again?",
+        "What is the approval path to give a revoked entry tag back to a coworker?",
+        "Steps to reinstate a colleague's disabled door credential?"
+      ],
+      "de": [
+        "Wie bekommt jemand seinen eingezogenen Gebäudeausweis wieder funktionsfähig?",
+        "Welcher Genehmigungsweg gibt einem Kollegen die gesperrte Zutrittsmarke zurück?",
+        "Schritte, um den deaktivierten Türzugang einer Kollegin wieder einzurichten?"
+      ]
+    },
+    "rationale": "Reinstatement, revocation, and suspension share the badge-approval vocabulary; only the gold grants access back, over the permanent bar and the pending suspension."
+  },
+  {
+    "group": "api-scope-grant",
+    "split": "certification",
+    "families": [
+      "permit-vs-prohibit"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Granting the service token write scope on the billing resource lets it post invoices through the API once the change is approved.",
+      "de": "Das Gewähren des Schreib-Geltungsbereichs für das Dienst-Token auf der Abrechnungsressource lässt es nach Genehmigung Rechnungen über die API buchen."
+    },
+    "hard": [
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Revoking the token down to read-only strips its write scope so it can list invoices but no longer post them.",
+        "de": "Das Zurückstufen des Tokens auf reinen Lesezugriff entzieht ihm den Schreib-Geltungsbereich, sodass es Rechnungen auflisten, aber nicht mehr buchen kann."
+      },
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Quarantining the token blocks every call outright, denying both reads and writes until it is cleared.",
+        "de": "Das Isolieren des Tokens blockiert jeden Aufruf vollständig und verweigert Lese- wie Schreibzugriffe, bis es freigegeben wird."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I let the service credential post billing entries through the interface?",
+        "What authorizes a token to write invoices on the billing endpoint?",
+        "Way to give the API key permission to submit charges?"
+      ],
+      "de": [
+        "Wie erlaube ich der Dienst-Berechtigung, Abrechnungseinträge über die Schnittstelle zu buchen?",
+        "Was befugt ein Token, Rechnungen am Abrechnungs-Endpunkt zu schreiben?",
+        "Weg, um dem API-Schlüssel die Erlaubnis zum Einreichen von Belastungen zu geben?"
+      ]
+    },
+    "rationale": "Granting write scope permits the action; downgrading to read-only and quarantining the token are the prohibiting contrasts."
+  },
+  {
+    "group": "egress-allow",
+    "split": "certification",
+    "families": [
+      "permit-vs-prohibit"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Allowing egress from the checkout pod to the payment host opens the single outbound route the service needs to settle transactions.",
+      "de": "Das Zulassen des Ausgangsverkehrs vom Checkout-Pod zum Zahlungs-Host öffnet die einzige ausgehende Route, die der Dienst zum Abwickeln von Transaktionen braucht."
+    },
+    "hard": [
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Blocking all egress from the checkout pod denies the outbound connection, so the service cannot reach the payment host at all.",
+        "de": "Das Sperren jeglichen Ausgangsverkehrs vom Checkout-Pod verweigert die ausgehende Verbindung, sodass der Dienst den Zahlungs-Host gar nicht erreicht."
+      },
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Denying egress to the payment host specifically while permitting the rest still cuts off settlement traffic.",
+        "de": "Das gezielte Verweigern des Ausgangsverkehrs zum Zahlungs-Host bei sonst erlaubtem Rest kappt dennoch den Abwicklungsverkehr."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I let the checkout service reach out to the settlement endpoint?",
+        "What opens the outbound path from the pod to the payment provider?",
+        "Way to permit the cart workload to talk to the billing host?"
+      ],
+      "de": [
+        "Wie lasse ich den Checkout-Dienst zum Abwicklungs-Endpunkt hinausgreifen?",
+        "Was öffnet den ausgehenden Pfad vom Pod zum Zahlungsanbieter?",
+        "Weg, um der Warenkorb-Last das Sprechen mit dem Abrechnungs-Host zu erlauben?"
+      ]
+    },
+    "rationale": "Allowing egress to the payment host permits the connection; the blanket block and the host-specific denial are the prohibiting contrasts."
+  },
+  {
+    "group": "feature-entitlement",
+    "split": "certification",
+    "families": [
+      "permit-vs-prohibit"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Enabling the premium export feature for the tenant unlocks bulk downloads immediately across their whole workspace.",
+      "de": "Das Freischalten der Premium-Export-Funktion für den Mandanten schaltet Massen-Downloads sofort im gesamten Arbeitsbereich frei."
+    },
+    "hard": [
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Disabling the export feature for the tenant hides bulk downloads and returns a not-entitled error on every attempt.",
+        "de": "Das Abschalten der Export-Funktion für den Mandanten verbirgt Massen-Downloads und liefert bei jedem Versuch einen Nicht-berechtigt-Fehler."
+      },
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Gating the feature behind a paywall forbids access until the tenant upgrades their plan.",
+        "de": "Das Sperren der Funktion hinter einer Bezahlschranke verbietet den Zugriff, bis der Mandant seinen Tarif hochstuft."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I switch on bulk downloading for this customer account?",
+        "What turns the premium export capability on for a workspace?",
+        "Way to entitle the tenant to the mass export option?"
+      ],
+      "de": [
+        "Wie schalte ich das Massen-Herunterladen für dieses Kundenkonto ein?",
+        "Was aktiviert die Premium-Export-Fähigkeit für einen Arbeitsbereich?",
+        "Weg, um den Mandanten für die Massen-Export-Option zu berechtigen?"
+      ]
+    },
+    "rationale": "Enabling the feature permits it; disabling it and gating it behind a paywall are the prohibiting contrasts."
+  },
+  {
+    "group": "schema-0142-apply",
+    "split": "certification",
+    "families": [
+      "apply-vs-rollback"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Promoting schema change 0142 forward adds the audit column and backfills it in batches while writes continue.",
+      "de": "Das Vorwärtsrollen der Schemaänderung 0142 fügt die Audit-Spalte hinzu und füllt sie stapelweise nach, während Schreibvorgänge weiterlaufen."
+    },
+    "hard": [
+      {
+        "family": "apply-vs-rollback",
+        "en": "Reverting schema change 0142 drops the audit column and restores the previous constraint set, discarding any backfilled values.",
+        "de": "Das Zurückrollen der Schemaänderung 0142 entfernt die Audit-Spalte und stellt den vorherigen Constraint-Satz wieder her, wobei nachgefüllte Werte verworfen werden."
+      },
+      {
+        "family": "apply-vs-rollback",
+        "en": "Pausing schema change 0142 mid-backfill halts new fills and leaves the column half-populated until it is resumed or reverted.",
+        "de": "Das Pausieren der Schemaänderung 0142 mitten im Nachfüllen stoppt neue Füllungen und lässt die Spalte halb gefüllt, bis fortgesetzt oder zurückgerollt wird."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How does moving migration 0142 ahead behave under live traffic?",
+        "What happens when we apply the 0142 schema step forward?",
+        "Effect of rolling change 0142 onward while writes keep flowing?"
+      ],
+      "de": [
+        "Wie verhält sich das Voranbringen von Migration 0142 unter Live-Last?",
+        "Was passiert, wenn wir den Schemaschritt 0142 vorwärts anwenden?",
+        "Wirkung, wenn man Änderung 0142 weiter ausrollt, während Schreibzugriffe laufen?"
+      ]
+    },
+    "rationale": "Applying and reverting migration 0142 are opposites; the paused half-state is a third contrast, and only the forward apply answers the query."
+  },
+  {
+    "group": "config-rollout",
+    "split": "certification",
+    "families": [
+      "apply-vs-rollback"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Applying the new gateway config promotes it to all edges and reloads them, so the fresh routing rules take effect immediately.",
+      "de": "Das Anwenden der neuen Gateway-Konfiguration bringt sie auf alle Edges und lädt sie neu, sodass die frischen Routing-Regeln sofort wirken."
+    },
+    "hard": [
+      {
+        "family": "apply-vs-rollback",
+        "en": "Rolling the gateway config back restores the previous revision on every edge and discards the new routing rules.",
+        "de": "Das Zurückrollen der Gateway-Konfiguration stellt die vorherige Revision auf jedem Edge wieder her und verwirft die neuen Routing-Regeln."
+      },
+      {
+        "family": "apply-vs-rollback",
+        "en": "Holding the gateway config in staging leaves the edges on the old revision while the new one waits unactivated.",
+        "de": "Das Halten der Gateway-Konfiguration in der Staging-Umgebung belässt die Edges auf der alten Revision, während die neue unaktiviert wartet."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How does pushing the updated router settings live behave once promoted?",
+        "What happens when we roll the new edge configuration forward?",
+        "Effect of activating the fresh gateway rules across all nodes?"
+      ],
+      "de": [
+        "Wie verhält sich das Livesetzen der aktualisierten Router-Einstellungen nach der Beförderung?",
+        "Was passiert, wenn wir die neue Edge-Konfiguration vorwärtsrollen?",
+        "Wirkung, wenn wir die frischen Gateway-Regeln über alle Knoten aktivieren?"
+      ]
+    },
+    "rationale": "Applying the config forward is the gold; rolling back to the previous revision and holding it in staging are the contrasts."
+  },
+  {
+    "group": "firmware-update",
+    "split": "certification",
+    "families": [
+      "apply-vs-rollback"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Flashing the new firmware writes the updated image to the device and boots it, bringing the patched controller online.",
+      "de": "Das Flashen der neuen Firmware schreibt das aktualisierte Abbild auf das Gerät und startet es, sodass der gepatchte Controller online geht."
+    },
+    "hard": [
+      {
+        "family": "apply-vs-rollback",
+        "en": "Restoring the prior firmware image reflashes the last-known-good build and discards the update that was just applied.",
+        "de": "Das Wiederherstellen des vorherigen Firmware-Abbilds flasht den letzten funktionierenden Build erneut und verwirft die soeben eingespielte Aktualisierung."
+      },
+      {
+        "family": "apply-vs-rollback",
+        "en": "Staging the firmware copies the image to the device's spare slot but leaves the running controller on the old build.",
+        "de": "Das Bereitstellen der Firmware kopiert das Abbild in den Reserveplatz des Geräts, belässt den laufenden Controller aber auf dem alten Build."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I get the patched image running on the controller?",
+        "What applies the new firmware and boots the device into it?",
+        "Way to move the hardware onto the updated build?"
+      ],
+      "de": [
+        "Wie bringe ich das gepatchte Abbild auf dem Controller zum Laufen?",
+        "Was spielt die neue Firmware ein und startet das Gerät hinein?",
+        "Weg, um die Hardware auf den aktualisierten Build zu bringen?"
+      ]
+    },
+    "rationale": "Flashing forward is the apply; restoring the prior image is the rollback and staging is the held third state."
+  },
+  {
+    "group": "index-migration",
+    "split": "certification",
+    "families": [
+      "apply-vs-rollback"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Migrating the search index forward builds the new mapping in a shadow index and atomically swaps the alias once it is fully populated.",
+      "de": "Das Vorwärts-Migrieren des Suchindex baut das neue Mapping in einem Schattenindex auf und tauscht den Alias atomar um, sobald er vollständig gefüllt ist."
+    },
+    "hard": [
+      {
+        "family": "apply-vs-rollback",
+        "en": "Rolling the index migration back drops the shadow index and repoints the alias at the original mapping, abandoning the new one.",
+        "de": "Das Zurückrollen der Index-Migration verwirft den Schattenindex und richtet den Alias wieder auf das ursprüngliche Mapping, wobei das neue aufgegeben wird."
+      },
+      {
+        "family": "apply-vs-rollback",
+        "en": "Dual-writing to both mappings keeps old and new in sync during the transition without cutting the alias over to either.",
+        "de": "Das Doppelschreiben in beide Mappings hält alt und neu während des Übergangs synchron, ohne den Alias auf eines von beiden umzuschalten."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do we cut over to the rebuilt search mapping once it is ready?",
+        "What promotes the shadow index to serve live queries?",
+        "Way to advance the index to its new schema and flip traffic?"
+      ],
+      "de": [
+        "Wie schalten wir auf das neu gebaute Such-Mapping um, sobald es bereit ist?",
+        "Was befördert den Schattenindex, damit er Live-Abfragen bedient?",
+        "Weg, um den Index auf sein neues Schema voranzubringen und den Verkehr umzulegen?"
+      ]
+    },
+    "rationale": "Swapping the alias forward is the apply; dropping the shadow and dual-writing are the rollback and holding contrasts."
+  },
+  {
+    "group": "airgap-install",
+    "split": "certification",
+    "families": [
+      "online-vs-offline"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "For a network-isolated host, mirror the package bundle onto removable media, verify the checksums locally, and run the installer with the registry lookup disabled.",
+      "de": "Für einen netzgetrennten Rechner spiegelt man das Paketbündel auf einen Wechseldatenträger, prüft die Prüfsummen lokal und startet das Installationsprogramm mit deaktivierter Registry-Abfrage."
+    },
+    "hard": [
+      {
+        "family": "online-vs-offline",
+        "en": "For a connected host, point the installer at the central registry so it streams the latest package set and resolves dependencies over the wire.",
+        "de": "Für einen verbundenen Rechner richtet man das Installationsprogramm auf die zentrale Registry, sodass es den neuesten Paketsatz bezieht und Abhängigkeiten über das Netz auflöst."
+      },
+      {
+        "family": "online-vs-offline",
+        "en": "For a partly connected host, run the installer behind a caching proxy that fetches only the missing packages on demand from upstream.",
+        "de": "Für einen teilweise verbundenen Rechner startet man das Installationsprogramm hinter einem Zwischenspeicher-Proxy, der nur die fehlenden Pakete bei Bedarf von oben nachlädt."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I set up the tool on a machine with no internet at all?",
+        "Deploying the package where the host is fully air-gapped, what is the procedure?",
+        "Install steps when the server cannot reach any external network?"
+      ],
+      "de": [
+        "Wie richte ich das Werkzeug auf einem Rechner ganz ohne Internet ein?",
+        "Das Paket dort ausrollen, wo der Host vollständig vom Netz getrennt ist, wie geht das?",
+        "Installationsschritte, wenn der Server kein externes Netzwerk erreichen kann?"
+      ]
+    },
+    "rationale": "The isolated-host install is the offline gold; the registry-streaming install and the caching-proxy install are the online and hybrid contrasts."
+  },
+  {
+    "group": "offline-license",
+    "split": "certification",
+    "families": [
+      "online-vs-offline"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Offline license activation reads a signed entitlement file from disk and unlocks the product without ever contacting the vendor.",
+      "de": "Die Offline-Lizenzaktivierung liest eine signierte Berechtigungsdatei von der Platte und schaltet das Produkt frei, ohne je den Anbieter zu kontaktieren."
+    },
+    "hard": [
+      {
+        "family": "online-vs-offline",
+        "en": "Online activation calls the vendor's license server over the network to exchange a key for a runtime entitlement.",
+        "de": "Die Online-Aktivierung ruft den Lizenzserver des Anbieters über das Netz auf, um einen Schlüssel gegen eine Laufzeitberechtigung zu tauschen."
+      },
+      {
+        "family": "online-vs-offline",
+        "en": "A time-limited trial unlocks the product for two weeks with no entitlement file at all and then locks itself.",
+        "de": "Eine zeitlich begrenzte Testphase schaltet das Produkt zwei Wochen ohne jede Berechtigungsdatei frei und sperrt sich danach selbst."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I license the software on a box that must never phone home?",
+        "What unlocks the product from a local key without any network call?",
+        "Way to activate without reaching the vendor over the internet?"
+      ],
+      "de": [
+        "Wie lizenziere ich die Software auf einer Kiste, die niemals nach Hause telefonieren darf?",
+        "Was schaltet das Produkt aus einem lokalen Schlüssel ohne jeden Netzaufruf frei?",
+        "Weg, um ohne Kontakt zum Anbieter über das Internet zu aktivieren?"
+      ]
+    },
+    "rationale": "The disk-based entitlement is the offline gold; server activation is the online contrast and the trial is a keyless distractor."
+  },
+  {
+    "group": "offline-maps",
+    "split": "certification",
+    "families": [
+      "online-vs-offline"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The routing app ships a bundled map dataset so it can plan trips entirely on the device with no data connection.",
+      "de": "Die Routing-App liefert einen mitgelieferten Kartendatensatz, sodass sie Fahrten vollständig auf dem Gerät ohne Datenverbindung planen kann."
+    },
+    "hard": [
+      {
+        "family": "online-vs-offline",
+        "en": "The live routing mode streams tiles and traffic from the backend for every trip and fails without connectivity.",
+        "de": "Der Live-Routing-Modus streamt Kacheln und Verkehr für jede Fahrt vom Backend und versagt ohne Verbindung."
+      },
+      {
+        "family": "online-vs-offline",
+        "en": "A hybrid mode caches recently viewed tiles but still refetches anything outside the cache from the server.",
+        "de": "Ein Hybridmodus speichert kürzlich betrachtete Kacheln zwischen, lädt aber alles außerhalb des Caches weiterhin vom Server nach."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How does the navigation work when the phone has no signal at all?",
+        "What lets trip planning run purely on-device without the backend?",
+        "Way to route using only the maps bundled on the handset?"
+      ],
+      "de": [
+        "Wie funktioniert die Navigation, wenn das Telefon gar kein Signal hat?",
+        "Was lässt die Fahrtplanung rein auf dem Gerät ohne Backend laufen?",
+        "Weg, um allein mit den auf dem Handgerät mitgelieferten Karten zu routen?"
+      ]
+    },
+    "rationale": "The bundled on-device dataset is the offline gold; live streaming is the online contrast and the tile cache is the hybrid distractor."
+  },
+  {
+    "group": "disconnected-sync",
+    "split": "certification",
+    "families": [
+      "online-vs-offline"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "In disconnected mode the client queues edits locally and reconciles them with the server once a link returns, so work never blocks offline.",
+      "de": "Im getrennten Modus reiht der Client Änderungen lokal ein und gleicht sie mit dem Server ab, sobald eine Verbindung zurückkehrt, sodass die Arbeit offline nie blockiert."
+    },
+    "hard": [
+      {
+        "family": "online-vs-offline",
+        "en": "In connected-only mode every edit is written straight through to the server and the editor freezes the moment the link drops.",
+        "de": "Im reinen Verbindungsmodus wird jede Änderung direkt zum Server durchgeschrieben und der Editor friert ein, sobald die Verbindung abbricht."
+      },
+      {
+        "family": "online-vs-offline",
+        "en": "A read-only offline mode lets users browse cached records without a link but rejects any edit until they reconnect.",
+        "de": "Ein schreibgeschützter Offline-Modus lässt Nutzer zwischengespeicherte Datensätze durchsehen, weist aber jede Änderung ab, bis sie sich wieder verbinden."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How can staff keep editing when the network keeps dropping out?",
+        "What lets changes be made offline and merged back later?",
+        "Way to keep working without a connection and sync afterwards?"
+      ],
+      "de": [
+        "Wie können Mitarbeiter weiter bearbeiten, wenn das Netz ständig abbricht?",
+        "Was lässt Änderungen offline machen und später zurückführen?",
+        "Weg, um ohne Verbindung weiterzuarbeiten und danach abzugleichen?"
+      ]
+    },
+    "rationale": "Queue-and-reconcile is the offline gold; write-through and read-only offline are the online and degraded contrasts."
+  },
+  {
+    "group": "settlement-protocol",
+    "split": "certification",
+    "families": [
+      "current-vs-superseded"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The billing gateway now speaks protocol revision 5, the only version the clearing house still accepts for new settlements.",
+      "de": "Das Abrechnungs-Gateway spricht jetzt Protokollrevision 5, die einzige Version, die das Clearinghaus für neue Abwicklungen noch akzeptiert."
+    },
+    "hard": [
+      {
+        "family": "current-vs-superseded",
+        "en": "Protocol revision 3 was retired last quarter; the clearing house rejects it for new settlements and keeps it only for historical replay.",
+        "de": "Protokollrevision 3 wurde letztes Quartal ausgemustert; das Clearinghaus lehnt sie für neue Abwicklungen ab und behält sie nur für historische Wiederholungen."
+      },
+      {
+        "family": "current-vs-superseded",
+        "en": "Protocol revision 4 is likewise retired for new settlements and remains only to decode archived batches.",
+        "de": "Protokollrevision 4 ist ebenfalls für neue Abwicklungen ausgemustert und bleibt nur, um archivierte Stapel zu entschlüsseln."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which settlement protocol should new integrations target today?",
+        "What version does the clearing house accept for fresh transactions now?",
+        "The active revision for submitting new settlements?"
+      ],
+      "de": [
+        "Welches Abwicklungsprotokoll sollten neue Integrationen heute ansprechen?",
+        "Welche Version akzeptiert das Clearinghaus jetzt für frische Transaktionen?",
+        "Die aktive Revision zum Einreichen neuer Abwicklungen?"
+      ]
+    },
+    "rationale": "Revision 5 is current; revisions 3 and 4 are superseded, so a query about what to use now must prefer the active version."
+  },
+  {
+    "group": "api-version-orders",
+    "split": "certification",
+    "families": [
+      "current-vs-superseded"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "New integrations must call the v3 orders API, the only version the platform currently serves for creating orders.",
+      "de": "Neue Integrationen müssen die v3-Bestell-API aufrufen, die einzige Version, die die Plattform derzeit zum Anlegen von Bestellungen bereitstellt."
+    },
+    "hard": [
+      {
+        "family": "current-vs-superseded",
+        "en": "The v1 orders API was deprecated two years ago and now rejects order creation, kept only for historical reads.",
+        "de": "Die v1-Bestell-API wurde vor zwei Jahren abgekündigt und weist das Anlegen von Bestellungen jetzt ab, nur für historische Lesezugriffe erhalten."
+      },
+      {
+        "family": "current-vs-superseded",
+        "en": "The v2 orders API is in sunset: it still accepts orders this quarter but is scheduled to stop next release.",
+        "de": "Die v2-Bestell-API ist im Ausklang: sie nimmt dieses Quartal noch Bestellungen an, soll aber im nächsten Release enden."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which orders endpoint should a fresh client build against today?",
+        "What is the supported version for creating new orders right now?",
+        "The interface new code must target for order placement?"
+      ],
+      "de": [
+        "Gegen welchen Bestell-Endpunkt sollte ein frischer Client heute bauen?",
+        "Was ist die unterstützte Version zum Anlegen neuer Bestellungen jetzt?",
+        "Die Schnittstelle, die neuer Code für die Auftragserteilung ansprechen muss?"
+      ]
+    },
+    "rationale": "v3 is current; v1 is superseded and v2 is sunsetting, so the query for today's endpoint must prefer v3."
+  },
+  {
+    "group": "cipher-policy",
+    "split": "certification",
+    "families": [
+      "current-vs-superseded"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The current transport policy negotiates only the TLS 1.3 suite; it is the sole configuration the load balancer accepts for new connections.",
+      "de": "Die aktuelle Transportrichtlinie handelt nur die TLS-1.3-Suite aus; sie ist die einzige Konfiguration, die der Lastverteiler für neue Verbindungen akzeptiert."
+    },
+    "hard": [
+      {
+        "family": "current-vs-superseded",
+        "en": "The TLS 1.0 suite was retired last year; the load balancer refuses it and keeps the setting only for audit reference.",
+        "de": "Die TLS-1.0-Suite wurde letztes Jahr ausgemustert; der Lastverteiler lehnt sie ab und behält die Einstellung nur als Prüfreferenz."
+      },
+      {
+        "family": "current-vs-superseded",
+        "en": "The TLS 1.1 suite is disabled by policy and rejected on every handshake, retained solely in the deprecated column of the config.",
+        "de": "Die TLS-1.1-Suite ist per Richtlinie deaktiviert und wird bei jedem Handschlag abgelehnt, nur noch in der veralteten Spalte der Konfiguration geführt."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which cipher configuration does the balancer accept for handshakes now?",
+        "What is the active transport suite for new secure connections?",
+        "The protocol setting a fresh client negotiates today?"
+      ],
+      "de": [
+        "Welche Chiffren-Konfiguration akzeptiert der Verteiler jetzt für Handschläge?",
+        "Was ist die aktive Transport-Suite für neue sichere Verbindungen?",
+        "Die Protokolleinstellung, die ein frischer Client heute aushandelt?"
+      ]
+    },
+    "rationale": "TLS 1.3 is current; TLS 1.0 and 1.1 are superseded, so the query for what is accepted now must prefer the 1.3 suite."
+  },
+  {
+    "group": "tax-table",
+    "split": "certification",
+    "families": [
+      "current-vs-superseded"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "For invoices dated this year, apply the 2026 rate table; it is the schedule the billing engine uses for all current calculations.",
+      "de": "Für Rechnungen mit diesjährigem Datum wendet man die Satztabelle 2026 an; sie ist der Plan, den die Abrechnungsmaschine für alle aktuellen Berechnungen nutzt."
+    },
+    "hard": [
+      {
+        "family": "current-vs-superseded",
+        "en": "The 2023 rate table was superseded and is no longer applied to new invoices, retained only to recompute historical bills.",
+        "de": "Die Satztabelle 2023 wurde abgelöst und wird auf neue Rechnungen nicht mehr angewendet, nur noch zum Nachrechnen historischer Rechnungen erhalten."
+      },
+      {
+        "family": "current-vs-superseded",
+        "en": "The 2024 rate table is archived; the engine keeps it for restating prior-year filings but never for current invoicing.",
+        "de": "Die Satztabelle 2024 ist archiviert; die Maschine behält sie zum Neuaufstellen von Vorjahresmeldungen, aber nie für die aktuelle Fakturierung."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which rate schedule should we charge against for a bill issued now?",
+        "What tax table does the engine use for this year's invoices?",
+        "The active rates to compute a present-day charge?"
+      ],
+      "de": [
+        "Gegen welchen Satzplan sollen wir für eine jetzt ausgestellte Rechnung verrechnen?",
+        "Welche Steuertabelle nutzt die Maschine für die diesjährigen Rechnungen?",
+        "Die aktiven Sätze zur Berechnung einer heutigen Belastung?"
+      ]
+    },
+    "rationale": "The 2026 table is current; the 2023 and 2024 tables are superseded, so the query for today's rates must prefer 2026."
+  },
+  {
+    "group": "firewall-audit",
+    "split": "certification",
+    "families": [
+      "mutate-vs-inspect"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The audit subcommand only reads the firewall ruleset and prints a diff; it changes nothing on the host.",
+      "de": "Der Audit-Unterbefehl liest lediglich den Firewall-Regelsatz und gibt eine Differenz aus; er ändert nichts am Host."
+    },
+    "hard": [
+      {
+        "family": "mutate-vs-inspect",
+        "en": "The apply subcommand rewrites the firewall ruleset in place and reloads the daemon, altering how live traffic is handled.",
+        "de": "Der Apply-Unterbefehl schreibt den Firewall-Regelsatz direkt um und lädt den Dienst neu, wodurch die Behandlung des Live-Verkehrs verändert wird."
+      },
+      {
+        "family": "mutate-vs-inspect",
+        "en": "The reset subcommand wipes the firewall ruleset back to defaults and reloads, discarding the current rules.",
+        "de": "Der Reset-Unterbefehl setzt den Firewall-Regelsatz auf die Standardwerte zurück und lädt neu, wobei die aktuellen Regeln verworfen werden."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which firewall command shows differences without touching anything?",
+        "How can I review the rule changes read-only, with no side effects?",
+        "The subcommand that inspects the ruleset but never writes it?"
+      ],
+      "de": [
+        "Welcher Firewall-Befehl zeigt Unterschiede, ohne etwas anzufassen?",
+        "Wie sehe ich die geplanten Regeländerungen als reine Vorschau, ohne den Host anzutasten?",
+        "Der Unterbefehl, der den Regelsatz inspiziert, ihn aber nie schreibt?"
+      ]
+    },
+    "rationale": "The read-only audit is the inspect gold; the apply and reset subcommands are the mutating contrasts."
+  },
+  {
+    "group": "db-explain",
+    "split": "certification",
+    "families": [
+      "mutate-vs-inspect"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Running EXPLAIN on the query only reports the planner's chosen path and touches no rows or schema.",
+      "de": "Das Ausführen von EXPLAIN für die Abfrage meldet nur den vom Planer gewählten Pfad und berührt keine Zeilen oder das Schema."
+    },
+    "hard": [
+      {
+        "family": "mutate-vs-inspect",
+        "en": "Running ALTER TABLE on the same relation rewrites its definition and rebuilds affected indexes in place.",
+        "de": "Das Ausführen von ALTER TABLE an derselben Relation schreibt ihre Definition um und baut betroffene Indizes an Ort und Stelle neu."
+      },
+      {
+        "family": "mutate-vs-inspect",
+        "en": "Running VACUUM FULL rewrites the table's storage to reclaim space, holding a lock while it moves every row.",
+        "de": "Das Ausführen von VACUUM FULL schreibt den Speicher der Tabelle neu, um Platz zurückzugewinnen, und hält dabei eine Sperre, während es jede Zeile verschiebt."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which statement shows the execution plan without changing the table?",
+        "What lets me see how the database will run a query, read-only?",
+        "Way to inspect the planner path with no side effects on data?"
+      ],
+      "de": [
+        "Welche Anweisung zeigt den Ausführungsplan, ohne die Tabelle zu ändern?",
+        "Was lässt mich sehen, wie die Datenbank eine Abfrage ausführt, schreibgeschützt?",
+        "Weg, um den Planer-Pfad ohne Nebenwirkungen auf Daten zu prüfen?"
+      ]
+    },
+    "rationale": "EXPLAIN inspects the plan; ALTER TABLE and VACUUM FULL are the mutating contrasts on the same relation."
+  },
+  {
+    "group": "dry-run-deploy",
+    "split": "certification",
+    "families": [
+      "mutate-vs-inspect"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The plan command previews the deployment as a diff and applies nothing, so operators can inspect the change set safely.",
+      "de": "Der Plan-Befehl zeigt die Bereitstellung als Differenz in der Vorschau und wendet nichts an, sodass Betreiber den Änderungssatz gefahrlos prüfen können."
+    },
+    "hard": [
+      {
+        "family": "mutate-vs-inspect",
+        "en": "The apply command executes the deployment for real, creating and destroying resources to match the target state.",
+        "de": "Der Apply-Befehl führt die Bereitstellung tatsächlich aus und erzeugt und zerstört Ressourcen, um den Zielzustand zu erreichen."
+      },
+      {
+        "family": "mutate-vs-inspect",
+        "en": "The force command applies the deployment while skipping every confirmation prompt and overwriting drifted resources.",
+        "de": "Der Force-Befehl wendet die Bereitstellung an, überspringt dabei jede Bestätigungsabfrage und überschreibt abgedriftete Ressourcen."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which command just shows what would change without provisioning anything?",
+        "How can I preview the infrastructure changes before they run?",
+        "Way to see the planned resource diff without touching the environment?"
+      ],
+      "de": [
+        "Welcher Befehl zeigt nur, was sich ändern würde, ohne etwas bereitzustellen?",
+        "Wie kann ich die Infrastrukturänderungen vor der Ausführung in der Vorschau sehen?",
+        "Weg, um die geplante Ressourcen-Differenz zu sehen, ohne die Umgebung anzufassen?"
+      ]
+    },
+    "rationale": "The plan preview inspects; apply and force are the mutating contrasts that provision for real."
+  },
+  {
+    "group": "config-get-set",
+    "split": "certification",
+    "families": [
+      "mutate-vs-inspect"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The get subcommand prints the current value of a setting to stdout and leaves the stored configuration untouched.",
+      "de": "Der Get-Unterbefehl gibt den aktuellen Wert einer Einstellung auf stdout aus und lässt die gespeicherte Konfiguration unangetastet."
+    },
+    "hard": [
+      {
+        "family": "mutate-vs-inspect",
+        "en": "The set subcommand writes a new value into the stored configuration and signals the daemon to reload it.",
+        "de": "Der Set-Unterbefehl schreibt einen neuen Wert in die gespeicherte Konfiguration und signalisiert dem Dienst, sie neu zu laden."
+      },
+      {
+        "family": "mutate-vs-inspect",
+        "en": "The reset subcommand clears the setting back to its default and rewrites the configuration file on disk.",
+        "de": "Der Reset-Unterbefehl setzt die Einstellung auf ihren Standard zurück und schreibt die Konfigurationsdatei auf der Platte neu."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which subcommand reveals a setting's value without modifying it?",
+        "How do I read the present configuration entry, output only?",
+        "Way to look up the stored value while leaving it as is?"
+      ],
+      "de": [
+        "Welcher Unterbefehl offenbart den Wert einer Einstellung, ohne ihn zu verändern?",
+        "Wie lese ich den gegenwärtigen Konfigurationseintrag, nur zur Ausgabe?",
+        "Weg, um den gespeicherten Wert nachzuschlagen und ihn so zu belassen?"
+      ]
+    },
+    "rationale": "get inspects the value; set and reset are the mutating contrasts that write the configuration."
+  },
+  {
+    "group": "checkout-latency",
+    "split": "certification",
+    "families": [
+      "cause-vs-coincidence"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "The checkout latency spike traced back to a saturated connection pool; requests queued behind exhausted database handles.",
+      "de": "Der Latenzanstieg an der Kasse ließ sich auf einen gesättigten Verbindungspool zurückführen; Anfragen stauten sich hinter erschöpften Datenbank-Handles."
+    },
+    "hard": [
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A marketing banner about checkout shipped in the same hour as the latency spike, but it served static assets and touched none of the request path.",
+        "de": "Ein Marketing-Banner zur Kasse ging in derselben Stunde live wie der Latenzanstieg, lieferte aber statische Inhalte aus und berührte den Anfragepfad nicht."
+      },
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A routine cache refresh ran near the latency window but finished in milliseconds and added no measurable delay to requests.",
+        "de": "Eine routinemäßige Cache-Auffrischung lief nahe am Latenzfenster, war aber in Millisekunden fertig und fügte den Anfragen keine messbare Verzögerung hinzu."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What actually drove the slow checkout responses?",
+        "Root cause behind the payment page latency, not just what coincided with it?",
+        "Why did checkout get slow, what was the real mechanism?"
+      ],
+      "de": [
+        "Was trieb die langsamen Kassenantworten tatsächlich an?",
+        "Grundursache hinter der Latenz der Zahlungsseite, nicht nur das zeitlich Zusammenfallende?",
+        "Warum wurde die Kasse langsam, was war der eigentliche Mechanismus?"
+      ]
+    },
+    "rationale": "The saturated pool is the cause; the marketing banner and the cache refresh are simultaneous coincidences that touched no request path."
+  },
+  {
+    "group": "disk-fill",
+    "split": "certification",
+    "families": [
+      "cause-vs-coincidence"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "The disk filled because a log-rotation bug stopped compressing old segments, so raw logs piled up until the volume was full.",
+      "de": "Die Platte lief voll, weil ein Fehler in der Protokollrotation das Komprimieren alter Segmente stoppte, sodass sich Rohprotokolle stapelten, bis das Volumen voll war."
+    },
+    "hard": [
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A nightly analytics cron happened to run as the disk filled, but it wrote only to a separate volume and consumed no space on the affected one.",
+        "de": "Ein nächtlicher Analyse-Cron lief zufällig, als die Platte voll wurde, schrieb aber nur auf ein separates Volumen und verbrauchte keinen Platz auf dem betroffenen."
+      },
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A dashboard deploy shipped in the same window but only swapped static files and touched nothing on the log volume.",
+        "de": "Eine Dashboard-Bereitstellung ging im selben Zeitfenster live, tauschte aber nur statische Dateien und berührte nichts auf dem Protokoll-Volumen."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What was the real reason the storage volume ran out of space?",
+        "Why did the disk actually fill up, the underlying fault?",
+        "Root cause of the volume exhaustion, not what merely coincided?"
+      ],
+      "de": [
+        "Was war der wahre Grund, dass dem Speichervolumen der Platz ausging?",
+        "Warum lief die Platte tatsächlich voll, der zugrunde liegende Fehler?",
+        "Grundursache der Volumen-Erschöpfung, nicht das bloß Zusammenfallende?"
+      ]
+    },
+    "rationale": "The log-rotation bug is the cause; the analytics cron and the dashboard deploy are coincidences that consumed no space on the volume."
+  },
+  {
+    "group": "memory-leak",
+    "split": "certification",
+    "families": [
+      "cause-vs-coincidence"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "The service leaked memory because database connections were never returned to the pool, so heap use climbed until the process was killed.",
+      "de": "Der Dienst verlor Speicher, weil Datenbankverbindungen nie an den Pool zurückgegeben wurden, sodass die Heap-Nutzung stieg, bis der Prozess beendet wurde."
+    },
+    "hard": [
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A feature flag flipped on the same afternoon the heap grew, but it only changed a button colour and allocated nothing lasting.",
+        "de": "Ein Funktionsschalter wurde am selben Nachmittag umgelegt, an dem der Heap wuchs, änderte aber nur eine Knopffarbe und belegte nichts Dauerhaftes."
+      },
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A library upgrade landed in the same release, yet profiling showed it held no references and freed everything it touched.",
+        "de": "Ein Bibliotheks-Upgrade kam im selben Release, doch das Profiling zeigte, dass es keine Referenzen hielt und alles freigab, was es berührte."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What genuinely caused the process to run out of memory?",
+        "Why did the heap keep growing until the crash, the real mechanism?",
+        "The actual driver of the leak, not the coincident change?"
+      ],
+      "de": [
+        "Was hat den Prozess wirklich in den Speichermangel getrieben?",
+        "Warum wuchs der Heap bis zum Absturz weiter, der eigentliche Mechanismus?",
+        "Der tatsächliche Treiber des Lecks, nicht die zufällig gleichzeitige Änderung?"
+      ]
+    },
+    "rationale": "The unreturned connections are the cause; the feature flag and the library upgrade are coincident changes that held nothing."
+  },
+  {
+    "group": "throughput-drop",
+    "split": "certification",
+    "families": [
+      "cause-vs-coincidence"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "Throughput dropped because a noisy neighbour on the shared node saturated the disk I/O, starving our reads of bandwidth.",
+      "de": "Der Durchsatz fiel, weil ein lauter Nachbar auf dem gemeinsamen Knoten die Platten-E/A sättigte und unseren Lesezugriffen die Bandbreite entzog."
+    },
+    "hard": [
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A marketing email went out at the same minute throughput fell, but it drove traffic to a static page off our critical path.",
+        "de": "Eine Marketing-E-Mail ging in derselben Minute hinaus, in der der Durchsatz fiel, lenkte den Verkehr aber auf eine statische Seite abseits unseres kritischen Pfads."
+      },
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A config reload happened nearby but changed only a log level and had no effect on the data path.",
+        "de": "Ein Konfigurations-Neuladen geschah in der Nähe, änderte aber nur eine Protokollstufe und hatte keine Wirkung auf den Datenpfad."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What actually throttled our read bandwidth on that node?",
+        "Why did throughput really fall, the true bottleneck?",
+        "The genuine cause of the slowdown, not the coincident event?"
+      ],
+      "de": [
+        "Was hat unsere Lese-Bandbreite auf diesem Knoten tatsächlich gedrosselt?",
+        "Warum fiel der Durchsatz wirklich, der wahre Engpass?",
+        "Die echte Ursache der Verlangsamung, nicht das gleichzeitige Ereignis?"
+      ]
+    },
+    "rationale": "The noisy neighbour saturating I/O is the cause; the marketing email and the config reload are coincidences off the data path."
+  },
+  {
+    "group": "broker-diag-kx4471",
+    "split": "certification",
+    "families": [
+      "identifier-tokens"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "Queue stalls reported with diagnostic KX-4471 point to an exhausted lease pool; widen the pool and recycle the broker to clear them.",
+      "de": "Warteschlangen-Blockaden mit der Diagnose KX-4471 deuten auf einen erschöpften Lease-Pool hin; den Pool vergrößern und den Broker neu starten, um sie aufzulösen."
+    },
+    "hard": [
+      {
+        "family": "identifier-tokens",
+        "en": "Queue stalls reported with diagnostic KX-4417 indicate a corrupt journal segment; rebuild the segment index rather than touching the lease pool.",
+        "de": "Warteschlangen-Blockaden mit der Diagnose KX-4417 weisen auf ein beschädigtes Journalsegment hin; den Segmentindex neu aufbauen, statt den Lease-Pool anzufassen."
+      },
+      {
+        "family": "identifier-tokens",
+        "en": "Queue stalls tagged KX-4741 come from a throttled replication link; raise the replication quota, not the lease pool.",
+        "de": "Mit KX-4741 markierte Warteschlangen-Blockaden stammen von einer gedrosselten Replikationsverbindung; die Replikationsquote anheben, nicht den Lease-Pool."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What fixes the broker fault reported as KX-4471?",
+        "Seeing code KX-4471 on stuck queues, what is the remedy?",
+        "Resolution for the KX-4471 diagnostic?"
+      ],
+      "de": [
+        "Was behebt die als KX-4471 gemeldete Broker-Störung?",
+        "Code KX-4471 bei hängenden Warteschlangen, was ist die Abhilfe?",
+        "Lösung für die Diagnose KX-4471?"
+      ]
+    },
+    "rationale": "The near-identical identifiers KX-4471, KX-4417, and KX-4741 must not be conflated; only the exact KX-4471 note with its lease-pool fix is correct."
+  },
+  {
+    "group": "error-e0x1f",
+    "split": "certification",
+    "families": [
+      "identifier-tokens"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "Fault E-0x1F on the sensor bus means the calibration table is missing; reload the table to clear it.",
+      "de": "Störung E-0x1F am Sensorbus bedeutet, dass die Kalibriertabelle fehlt; die Tabelle neu laden, um sie zu beheben."
+    },
+    "hard": [
+      {
+        "family": "identifier-tokens",
+        "en": "Fault E-0x1E on the sensor bus means the bus clock drifted; resynchronise the clock, not the calibration table.",
+        "de": "Störung E-0x1E am Sensorbus bedeutet, dass die Bustaktung abwich; den Takt neu synchronisieren, nicht die Kalibriertabelle."
+      },
+      {
+        "family": "identifier-tokens",
+        "en": "Fault E-0xF1 on the power rail means an undervoltage trip; check the supply rather than anything on the sensor bus.",
+        "de": "Störung E-0xF1 an der Stromschiene bedeutet eine Unterspannungsabschaltung; die Versorgung prüfen statt irgendetwas am Sensorbus."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What clears the sensor fault code E-0x1F?",
+        "How do I resolve error E-0x1F on the bus?",
+        "Fix for the E-0x1F diagnostic?"
+      ],
+      "de": [
+        "Was behebt den Sensor-Fehlercode E-0x1F?",
+        "Wie löse ich Fehler E-0x1F am Bus?",
+        "Behebung für die Diagnose E-0x1F?"
+      ]
+    },
+    "rationale": "E-0x1F, E-0x1E, and E-0xF1 differ by a single hex position; only the exact E-0x1F note about the calibration table answers the query."
+  },
+  {
+    "group": "ticket-inc-88231",
+    "split": "certification",
+    "families": [
+      "identifier-tokens"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "Incident INC-88231 tracks the checkout outage caused by the expired certificate; its fix is the certificate renewal rollout.",
+      "de": "Störung INC-88231 verfolgt den Checkout-Ausfall durch das abgelaufene Zertifikat; ihre Behebung ist die Ausbringung der Zertifikatserneuerung."
+    },
+    "hard": [
+      {
+        "family": "identifier-tokens",
+        "en": "Incident INC-88321 tracks a search indexing backlog and is unrelated to the checkout certificate outage.",
+        "de": "Störung INC-88321 verfolgt einen Rückstau bei der Suchindizierung und hat nichts mit dem Checkout-Zertifikatsausfall zu tun."
+      },
+      {
+        "family": "identifier-tokens",
+        "en": "Incident INC-82231 tracks a billing export delay from a stuck job, a different ticket entirely.",
+        "de": "Störung INC-82231 verfolgt eine Verzögerung beim Abrechnungsexport durch einen hängenden Job, ein völlig anderes Ticket."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What is the resolution recorded under incident INC-88231?",
+        "Which fix belongs to ticket INC-88231?",
+        "How was INC-88231 closed out?"
+      ],
+      "de": [
+        "Welche Lösung ist unter Störung INC-88231 vermerkt?",
+        "Welche Behebung gehört zu Ticket INC-88231?",
+        "Wie wurde INC-88231 abgeschlossen?"
+      ]
+    },
+    "rationale": "INC-88231, INC-88321, and INC-82231 are transposed ticket numbers; only the exact INC-88231 note about the certificate outage is the match."
+  },
+  {
+    "group": "sku-mismatch",
+    "split": "certification",
+    "families": [
+      "identifier-tokens"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Part RT-90A is the ninety-amp relay; ship it for any order that specifies the RT-90A breaker module.",
+      "de": "Teil RT-90A ist das Neunzig-Ampere-Relais; für jede Bestellung, die das RT-90A-Schutzmodul angibt, wird es geliefert."
+    },
+    "hard": [
+      {
+        "family": "identifier-tokens",
+        "en": "Part RT-9OA, spelled with a letter O, is a discontinued optical adapter and must not be substituted for the relay.",
+        "de": "Teil RT-9OA, geschrieben mit dem Buchstaben O, ist ein abgekündigter optischer Adapter und darf nicht für das Relais eingesetzt werden."
+      },
+      {
+        "family": "identifier-tokens",
+        "en": "Part RT-90B is the higher-rated hundred-amp relay and is not interchangeable with the ninety-amp unit.",
+        "de": "Teil RT-90B ist das höher belastbare Hundert-Ampere-Relais und ist nicht mit der Neunzig-Ampere-Einheit austauschbar."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which component fulfils an order for the RT-90A module?",
+        "What part number RT-90A do we ship for the breaker?",
+        "The correct item for an RT-90A relay request?"
+      ],
+      "de": [
+        "Welche Komponente erfüllt eine Bestellung für das RT-90A-Modul?",
+        "Welche Teilenummer RT-90A liefern wir für den Schutzschalter?",
+        "Der richtige Artikel für eine RT-90A-Relais-Anforderung?"
+      ]
+    },
+    "rationale": "RT-90A, RT-9OA (letter O), and RT-90B are visually close SKUs; only the exact RT-90A relay is correct, over the optical adapter and the hundred-amp part."
+  },
+  {
+    "group": "dns-ttl",
+    "split": "dev",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "A DNS record change takes effect once the old TTL expires everywhere, so a low TTL set earlier makes the switch propagate within minutes.",
+      "de": "Eine Änderung eines DNS-Eintrags wird wirksam, sobald die alte TTL überall abgelaufen ist, sodass eine zuvor niedrig gesetzte TTL den Wechsel binnen Minuten verbreitet."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Transferring a domain between registrars can take up to a week and is unrelated to how fast a record's TTL lets an edit propagate.",
+        "de": "Der Transfer einer Domain zwischen Registraren kann bis zu einer Woche dauern und hat nichts damit zu tun, wie schnell die TTL eines Eintrags eine Änderung verbreitet."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How long before a DNS update is visible to everyone?",
+        "When does a record edit finish rolling out across resolvers?",
+        "Time for a name change to reach all clients?"
+      ],
+      "de": [
+        "Wie lange, bis eine DNS-Aktualisierung für alle sichtbar ist?",
+        "Wann ist eine Eintragsänderung über alle Resolver ausgerollt?",
+        "Zeit, bis eine Namensänderung alle Clients erreicht?"
+      ]
+    },
+    "rationale": "Propagation time is governed by the TTL; the registrar transfer note is an adjacent DNS topic that does not answer it."
+  },
+  {
+    "group": "rate-limit",
+    "split": "dev",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The API rate limiter uses a token bucket that refills at fifty tokens per second, so a client regains capacity gradually after a burst.",
+      "de": "Der API-Ratenbegrenzer nutzt einen Token-Eimer, der sich mit fünfzig Token pro Sekunde auffüllt, sodass ein Client nach einem Ausbruch schrittweise Kapazität zurückgewinnt."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "The circuit breaker trips after five consecutive errors and blocks calls for a cooldown, a failure guard distinct from steady rate limiting.",
+        "de": "Der Sicherungsschalter löst nach fünf aufeinanderfolgenden Fehlern aus und blockiert Aufrufe für eine Abkühlzeit, ein Ausfallschutz getrennt von der stetigen Ratenbegrenzung."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How does a caller get its request budget back after hitting the cap?",
+        "What controls how quickly throttled clients recover throughput?",
+        "Way the quota refills once a burst is over?"
+      ],
+      "de": [
+        "Wie bekommt ein Aufrufer sein Anfragebudget zurück, nachdem er das Limit erreicht hat?",
+        "Was steuert, wie schnell gedrosselte Clients ihren Durchsatz zurückgewinnen?",
+        "Wie füllt sich das Kontingent wieder auf, sobald ein Ausbruch vorbei ist?"
+      ]
+    },
+    "rationale": "Token-bucket refill governs recovery; the circuit breaker is an adjacent protection mechanism, not the rate limiter."
+  },
+  {
+    "group": "session-timeout",
+    "split": "dev",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "An idle web session expires after thirty minutes without activity and forces the user to sign in again.",
+      "de": "Eine untätige Web-Sitzung läuft nach dreißig Minuten ohne Aktivität ab und zwingt den Nutzer zur erneuten Anmeldung."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "A password must be changed every ninety days by policy, a credential lifecycle separate from how long a login stays live.",
+        "de": "Ein Passwort muss laut Richtlinie alle neunzig Tage geändert werden, ein Anmeldedaten-Lebenszyklus getrennt davon, wie lange eine Anmeldung aktiv bleibt."
+      }
+    ],
+    "queries": {
+      "en": [
+        "After how much inactivity is a user logged out automatically?",
+        "When does an unused login lapse and demand re-authentication?",
+        "How long can someone stay signed in while doing nothing?"
+      ],
+      "de": [
+        "Nach wie viel Untätigkeit wird ein Nutzer automatisch abgemeldet?",
+        "Wann verfällt eine ungenutzte Anmeldung und verlangt erneute Authentifizierung?",
+        "Wie lange kann jemand angemeldet bleiben, ohne etwas zu tun?"
+      ]
+    },
+    "rationale": "Idle-session expiry answers the query; the password-rotation policy is an adjacent credential rule, not the timeout."
+  },
+  {
+    "group": "thumbnail-pipeline",
+    "split": "dev",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Uploaded photos are resized into thumbnails by a background worker that pulls jobs from a queue after the original is stored.",
+      "de": "Hochgeladene Fotos werden von einem Hintergrund-Arbeiter in Miniaturbilder verkleinert, der Aufträge aus einer Warteschlange zieht, nachdem das Original gespeichert ist."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Video transcoding runs on a separate GPU fleet with its own queue and does not share the image thumbnail path.",
+        "de": "Die Video-Transkodierung läuft auf einer separaten GPU-Flotte mit eigener Warteschlange und teilt den Bild-Miniatur-Pfad nicht."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How are the small preview images produced after a picture is uploaded?",
+        "What generates the scaled-down versions of stored photos?",
+        "Way the system makes photo previews in the background?"
+      ],
+      "de": [
+        "Wie werden die kleinen Vorschaubilder erzeugt, nachdem ein Bild hochgeladen wurde?",
+        "Was erzeugt die verkleinerten Versionen gespeicherter Fotos?",
+        "Wie fertigt das System Fotovorschauen im Hintergrund an?"
+      ]
+    },
+    "rationale": "The thumbnail worker answers the query; video transcoding is an adjacent media pipeline on different hardware."
+  },
+  {
+    "group": "dashboard-refresh",
+    "split": "dev",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The metrics dashboard refreshes every sixty seconds by re-querying the time-series store for the latest points.",
+      "de": "Das Metrik-Dashboard aktualisiert sich alle sechzig Sekunden, indem es den Zeitreihenspeicher nach den neuesten Punkten neu abfragt."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "The alert evaluator runs on its own one-minute schedule to test thresholds and is separate from the dashboard's polling.",
+        "de": "Der Alarm-Auswerter läuft nach eigenem Ein-Minuten-Plan, um Schwellen zu prüfen, und ist von der Abfrage des Dashboards getrennt."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How often does the metrics view pull fresh data points?",
+        "What sets the update cadence of the dashboard's charts?",
+        "The interval at which the panels re-read the store?"
+      ],
+      "de": [
+        "Wie oft holt die Metrikansicht frische Datenpunkte?",
+        "Was legt die Aktualisierungstaktung der Dashboard-Diagramme fest?",
+        "Das Intervall, in dem die Panels den Speicher neu lesen?"
+      ]
+    },
+    "rationale": "The dashboard's own refresh interval answers the query; the alert evaluator's schedule is an adjacent timer."
+  },
+  {
+    "group": "cron-window",
+    "split": "dev",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The cleanup cron runs at 02:00 in a two-hour maintenance window and skips itself if the previous run is still active.",
+      "de": "Der Aufräum-Cron läuft um 02:00 in einem zweistündigen Wartungsfenster und überspringt sich, wenn der vorige Lauf noch aktiv ist."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "The billing cron runs at 05:00 on its own schedule and is unrelated to the cleanup window.",
+        "de": "Der Abrechnungs-Cron läuft um 05:00 nach eigenem Plan und hat nichts mit dem Aufräumfenster zu tun."
+      }
+    ],
+    "queries": {
+      "en": [
+        "When does the cleanup job fire and how long is its window?",
+        "What time does the maintenance sweep start each night?",
+        "The schedule and window for the cleanup task?"
+      ],
+      "de": [
+        "Wann startet der Aufräumauftrag und wie lang ist sein Fenster?",
+        "Um welche Zeit beginnt der Wartungsdurchlauf jede Nacht?",
+        "Der Plan und das Fenster für die Aufräumaufgabe?"
+      ]
+    },
+    "rationale": "The cleanup cron's schedule and window answer the query; the billing cron is an adjacent unrelated timer."
+  },
+  {
+    "group": "webhook-retry",
+    "split": "dev",
+    "families": [
+      "success-vs-failure"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The webhook delivered on the third retry: the receiver returned 200 and the event was marked acknowledged.",
+      "de": "Der Webhook wurde beim dritten Versuch zugestellt: der Empfänger antwortete mit 200 und das Ereignis wurde als bestätigt markiert."
+    },
+    "hard": [
+      {
+        "family": "success-vs-failure",
+        "en": "The webhook exhausted all retries: every attempt timed out and the event was moved to the dead-letter queue.",
+        "de": "Der Webhook erschöpfte alle Versuche: jeder Anlauf lief in eine Zeitüberschreitung und das Ereignis wanderte in die Warteschlange für unzustellbare Nachrichten."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which event notification eventually got through and was confirmed?",
+        "Did the callback succeed after a couple of reattempts?",
+        "Show the webhook that landed and was acknowledged."
+      ],
+      "de": [
+        "Welche Ereignisbenachrichtigung kam schließlich durch und wurde bestätigt?",
+        "Ist der Rückruf nach ein paar Wiederholungen gelungen?",
+        "Zeig den Webhook, der ankam und bestätigt wurde."
+      ]
+    },
+    "rationale": "The acknowledged delivery is the success; the dead-lettered webhook is the failure contrast."
+  },
+  {
+    "group": "import-job-outcome",
+    "split": "dev",
+    "families": [
+      "success-vs-failure"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The bulk import completed: all rows validated, loaded, and the job reported a clean finish.",
+      "de": "Der Massenimport war vollständig: alle Zeilen wurden geprüft, geladen und der Auftrag meldete einen sauberen Abschluss."
+    },
+    "hard": [
+      {
+        "family": "success-vs-failure",
+        "en": "The bulk import failed validation: a malformed column halted the load and no rows were committed.",
+        "de": "Der Massenimport scheiterte an der Prüfung: eine fehlerhafte Spalte stoppte das Laden und es wurden keine Zeilen übernommen."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which data load finished with everything ingested correctly?",
+        "Did the import run end with all records committed?",
+        "Show the batch load that came through clean."
+      ],
+      "de": [
+        "Welche Datenladung endete mit allem korrekt eingelesen?",
+        "Ist der Importlauf mit allen übernommenen Datensätzen beendet?",
+        "Zeig den Stapel-Ladevorgang, der sauber durchkam."
+      ]
+    },
+    "rationale": "The clean import is the success; the validation-halted import is the failure contrast."
+  },
+  {
+    "group": "canary-promote",
+    "split": "dev",
+    "families": [
+      "apply-vs-rollback"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Promoting the canary shifts the remaining traffic onto the new build after its error rate stayed within budget.",
+      "de": "Das Befördern des Kanarienvogels verlagert den restlichen Verkehr auf den neuen Build, nachdem seine Fehlerrate im Budget blieb."
+    },
+    "hard": [
+      {
+        "family": "apply-vs-rollback",
+        "en": "Aborting the canary drains its traffic back to the stable build and discards the candidate.",
+        "de": "Das Abbrechen des Kanarienvogels leitet seinen Verkehr zurück auf den stabilen Build und verwirft den Kandidaten."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do we move all users onto the trial build once it looks healthy?",
+        "What advances the canary to take the full traffic share?",
+        "Way to roll the candidate out to everyone after it passes?"
+      ],
+      "de": [
+        "Wie bringen wir alle Nutzer auf den Test-Build, sobald er gesund aussieht?",
+        "Was befördert den Kanarienvogel, damit er den vollen Verkehrsanteil übernimmt?",
+        "Weg, um den Kandidaten nach bestandener Prüfung an alle auszurollen?"
+      ]
+    },
+    "rationale": "Promoting the canary forward is the gold; aborting it back to stable is the rollback contrast."
+  },
+  {
+    "group": "dns-cutover",
+    "split": "dev",
+    "families": [
+      "apply-vs-rollback"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Cutting over DNS points the apex record at the new load balancer, sending fresh traffic to the migrated stack.",
+      "de": "Das Umschalten des DNS richtet den Apex-Eintrag auf den neuen Lastverteiler und schickt frischen Verkehr zum migrierten Stapel."
+    },
+    "hard": [
+      {
+        "family": "apply-vs-rollback",
+        "en": "Reverting the DNS cutover restores the apex record to the old balancer and pulls traffic back to the legacy stack.",
+        "de": "Das Zurücknehmen der DNS-Umschaltung stellt den Apex-Eintrag auf den alten Verteiler zurück und zieht den Verkehr auf den Altstapel zurück."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do we send live traffic to the new stack via the domain record?",
+        "What flips the apex to the migrated load balancer?",
+        "Way to move production onto the new endpoint through DNS?"
+      ],
+      "de": [
+        "Wie schicken wir Live-Verkehr über den Domain-Eintrag zum neuen Stapel?",
+        "Was schaltet den Apex auf den migrierten Lastverteiler um?",
+        "Weg, um die Produktion über DNS auf den neuen Endpunkt zu bringen?"
+      ]
+    },
+    "rationale": "The forward cutover is the apply; reverting the record to the old balancer is the rollback contrast."
+  },
+  {
+    "group": "cert-rotation-apply",
+    "split": "dev",
+    "families": [
+      "apply-vs-rollback"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Rotating the ingress certificate installs the freshly issued chain and reloads the proxy so clients see the new cert.",
+      "de": "Das Rotieren des Ingress-Zertifikats installiert die frisch ausgestellte Kette und lädt den Proxy neu, sodass Clients das neue Zertifikat sehen."
+    },
+    "hard": [
+      {
+        "family": "apply-vs-rollback",
+        "en": "Rolling the certificate rotation back reinstalls the previous chain and reloads the proxy onto the old cert.",
+        "de": "Das Zurückrollen der Zertifikatsrotation installiert die vorherige Kette erneut und lädt den Proxy auf das alte Zertifikat."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do we put the newly issued TLS chain into service on the ingress?",
+        "What applies the fresh certificate and reloads the proxy?",
+        "Way to move the endpoint onto the new cert?"
+      ],
+      "de": [
+        "Wie bringen wir die neu ausgestellte TLS-Kette am Ingress in Betrieb?",
+        "Was spielt das frische Zertifikat ein und lädt den Proxy neu?",
+        "Weg, um den Endpunkt auf das neue Zertifikat zu bringen?"
+      ]
+    },
+    "rationale": "Installing the fresh chain forward is the apply; reinstalling the previous chain is the rollback contrast."
+  },
+  {
+    "group": "queue-peek-consume",
+    "split": "dev",
+    "families": [
+      "mutate-vs-inspect"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Peeking the queue returns the next message for inspection while leaving it in place for a real consumer.",
+      "de": "Das Blicken in die Warteschlange gibt die nächste Nachricht zur Ansicht zurück und belässt sie für einen echten Verbraucher an Ort und Stelle."
+    },
+    "hard": [
+      {
+        "family": "mutate-vs-inspect",
+        "en": "Consuming from the queue removes the next message and acknowledges it, so no other worker can receive it.",
+        "de": "Das Verbrauchen aus der Warteschlange entfernt die nächste Nachricht und bestätigt sie, sodass kein anderer Arbeiter sie empfangen kann."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How can I look at the head message without taking it off the queue?",
+        "What reads the next item but leaves it for real processing?",
+        "Way to inspect a pending message non-destructively?"
+      ],
+      "de": [
+        "Wie kann ich die Kopfnachricht ansehen, ohne sie aus der Warteschlange zu nehmen?",
+        "Was liest den nächsten Eintrag, belässt ihn aber für die echte Verarbeitung?",
+        "Weg, um eine wartende Nachricht zerstörungsfrei zu prüfen?"
+      ]
+    },
+    "rationale": "Peek inspects the message; consume is the mutating contrast that removes it."
+  },
+  {
+    "group": "ledger-readonly",
+    "split": "dev",
+    "families": [
+      "mutate-vs-inspect"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The statement view lists ledger entries for reading and never alters a balance.",
+      "de": "Die Auszugsansicht listet Buchungseinträge zum Lesen auf und verändert nie einen Saldo."
+    },
+    "hard": [
+      {
+        "family": "mutate-vs-inspect",
+        "en": "The adjustment action posts a correcting entry that changes the account balance on the ledger.",
+        "de": "Die Korrekturaktion bucht einen Ausgleichseintrag, der den Kontosaldo im Hauptbuch verändert."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which view lets me read the account entries without altering totals?",
+        "How do I browse the ledger without posting anything?",
+        "Way to inspect balances read-only?"
+      ],
+      "de": [
+        "Welche Ansicht lässt mich die Kontoeinträge lesen, ohne Summen zu verändern?",
+        "Wie durchsuche ich das Hauptbuch, ohne etwas zu buchen?",
+        "Weg, um Salden schreibgeschützt zu prüfen?"
+      ]
+    },
+    "rationale": "The statement view inspects; the adjustment action is the mutating contrast that changes a balance."
+  },
+  {
+    "group": "shard-rebalance",
+    "split": "dev",
+    "families": [
+      "mutate-vs-inspect"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The distribution report reads shard sizes and prints where data is skewed, changing no placement.",
+      "de": "Der Verteilungsbericht liest die Shard-Größen und gibt aus, wo Daten schief liegen, ohne eine Platzierung zu ändern."
+    },
+    "hard": [
+      {
+        "family": "mutate-vs-inspect",
+        "en": "The rebalance action moves partitions between nodes to even out load and rewrites the placement map.",
+        "de": "Die Ausgleichsaktion verschiebt Partitionen zwischen Knoten, um die Last auszugleichen, und schreibt die Platzierungskarte neu."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which command shows how skewed the shards are without moving data?",
+        "How can I inspect partition distribution read-only?",
+        "Way to see load imbalance without rebalancing anything?"
+      ],
+      "de": [
+        "Welcher Befehl zeigt, wie schief die Shards liegen, ohne Daten zu verschieben?",
+        "Wie kann ich die Partitionsverteilung schreibgeschützt prüfen?",
+        "Weg, um die Lastungleichheit zu sehen, ohne etwas auszugleichen?"
+      ]
+    },
+    "rationale": "The distribution report inspects; the rebalance action is the mutating contrast that moves partitions."
+  },
+  {
+    "group": "vpn-access",
+    "split": "dev",
+    "families": [
+      "permit-vs-prohibit"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Granting the contractor a VPN profile lets them reach the internal staging network for the length of the engagement.",
+      "de": "Das Gewähren eines VPN-Profils an den Auftragnehmer lässt ihn für die Dauer des Auftrags das interne Staging-Netz erreichen."
+    },
+    "hard": [
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Revoking the contractor's VPN profile cuts their tunnel and denies any further access to the internal network.",
+        "de": "Das Entziehen des VPN-Profils des Auftragnehmers kappt seinen Tunnel und verweigert jeden weiteren Zugang zum internen Netz."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I let an outside contractor onto the internal staging network?",
+        "What issues VPN access so a vendor can reach staging?",
+        "Way to permit a temporary tunnel into the private network?"
+      ],
+      "de": [
+        "Wie lasse ich einen externen Auftragnehmer ins interne Staging-Netz?",
+        "Was erteilt VPN-Zugang, damit ein Lieferant Staging erreicht?",
+        "Weg, um einen zeitweiligen Tunnel ins private Netz zu erlauben?"
+      ]
+    },
+    "rationale": "Granting the VPN profile permits access; revoking it is the prohibit contrast."
+  },
+  {
+    "group": "bucket-public",
+    "split": "dev",
+    "families": [
+      "permit-vs-prohibit"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Making the assets bucket public grants anonymous read access so a CDN can serve its files to anyone.",
+      "de": "Das Öffentlichmachen des Asset-Speichers gewährt anonymen Lesezugriff, sodass ein CDN seine Dateien an jeden ausliefern kann."
+    },
+    "hard": [
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Locking the assets bucket private denies anonymous reads and forces every request to carry a signed credential.",
+        "de": "Das Privatsetzen des Asset-Speichers verweigert anonyme Lesezugriffe und zwingt jede Anfrage, eine signierte Berechtigung mitzuführen."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I let anyone read the files in the assets store?",
+        "What opens the bucket for public unauthenticated downloads?",
+        "Way to permit open read access to the objects?"
+      ],
+      "de": [
+        "Wie lasse ich jeden die Dateien im Asset-Speicher lesen?",
+        "Was öffnet den Speicher für öffentliche, nicht authentifizierte Downloads?",
+        "Weg, um offenen Lesezugriff auf die Objekte zu erlauben?"
+      ]
+    },
+    "rationale": "Making the bucket public permits anonymous reads; locking it private is the prohibit contrast."
+  },
+  {
+    "group": "temp-admin-grant",
+    "split": "dev",
+    "families": [
+      "permit-vs-prohibit"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Granting a break-glass admin role gives the responder elevated rights for one hour to resolve the incident.",
+      "de": "Das Gewähren einer Notfall-Admin-Rolle gibt dem Bearbeiter für eine Stunde erhöhte Rechte, um die Störung zu lösen."
+    },
+    "hard": [
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Revoking the break-glass role immediately strips the elevated rights and returns the responder to standard access.",
+        "de": "Das Entziehen der Notfall-Rolle nimmt die erhöhten Rechte sofort weg und setzt den Bearbeiter auf Standardzugang zurück."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I give a responder temporary elevated access during an incident?",
+        "What grants short-lived admin rights to fix an outage?",
+        "Way to permit break-glass privileges for an hour?"
+      ],
+      "de": [
+        "Wie gebe ich einem Bearbeiter während einer Störung zeitweilig erhöhten Zugang?",
+        "Was gewährt kurzlebige Admin-Rechte, um einen Ausfall zu beheben?",
+        "Weg, um Notfall-Privilegien für eine Stunde zu erlauben?"
+      ]
+    },
+    "rationale": "Granting the break-glass role permits elevation; revoking it is the prohibit contrast."
+  },
+  {
+    "group": "sdk-deprecation",
+    "split": "dev",
+    "families": [
+      "current-vs-superseded"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "New apps should build on SDK v4, the release the vendor actively supports and patches.",
+      "de": "Neue Apps sollten auf SDK v4 aufbauen, der Ausgabe, die der Anbieter aktiv unterstützt und patcht."
+    },
+    "hard": [
+      {
+        "family": "current-vs-superseded",
+        "en": "SDK v2 reached end of life and gets no more fixes, kept available only for legacy builds.",
+        "de": "SDK v2 erreichte das Lebensende und erhält keine Korrekturen mehr, nur noch für Altbauten verfügbar gehalten."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which SDK release should a brand-new app depend on?",
+        "What is the supported toolkit version to start from now?",
+        "The current library line for fresh development?"
+      ],
+      "de": [
+        "Auf welche SDK-Ausgabe sollte eine brandneue App setzen?",
+        "Was ist die unterstützte Toolkit-Version, um jetzt zu starten?",
+        "Die aktuelle Bibliothekslinie für frische Entwicklung?"
+      ]
+    },
+    "rationale": "SDK v4 is current; v2 is superseded, so the query for what to start from prefers v4."
+  },
+  {
+    "group": "runbook-version",
+    "split": "dev",
+    "families": [
+      "current-vs-superseded"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Follow the 2026 incident runbook; it is the procedure on-call must use for the current escalation flow.",
+      "de": "Folge dem Störungs-Runbook 2026; es ist das Verfahren, das die Bereitschaft für den aktuellen Eskalationsablauf nutzen muss."
+    },
+    "hard": [
+      {
+        "family": "current-vs-superseded",
+        "en": "The 2022 runbook was retired after the tooling changed and now misdirects steps, kept only as an archive.",
+        "de": "Das Runbook 2022 wurde nach der Werkzeugumstellung zurückgezogen und leitet Schritte jetzt fehl, nur noch als Archiv erhalten."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which runbook should on-call follow for an escalation today?",
+        "What is the active incident procedure to use right now?",
+        "The current playbook for handling an incident?"
+      ],
+      "de": [
+        "Welchem Runbook soll die Bereitschaft heute bei einer Eskalation folgen?",
+        "Was ist das aktive Störungsverfahren, das jetzt zu nutzen ist?",
+        "Das aktuelle Playbook für die Behandlung einer Störung?"
+      ]
+    },
+    "rationale": "The 2026 runbook is current; the 2022 one is superseded, so the query for today's procedure prefers 2026."
+  },
+  {
+    "group": "flag-rollout-state",
+    "split": "dev",
+    "families": [
+      "current-vs-superseded"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The new-checkout flag is fully rolled out and is the active code path every user now takes.",
+      "de": "Der Neue-Kasse-Schalter ist vollständig ausgerollt und ist der aktive Codepfad, den jetzt jeder Nutzer nimmt."
+    },
+    "hard": [
+      {
+        "family": "current-vs-superseded",
+        "en": "The old-checkout flag is retired and its path is dead code, kept only behind a disabled switch.",
+        "de": "Der Alte-Kasse-Schalter ist stillgelegt und sein Pfad ist toter Code, nur noch hinter einem deaktivierten Schalter erhalten."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which checkout code path is the live one every user hits now?",
+        "What is the active flag state for the current checkout flow?",
+        "The path in force today for checkout?"
+      ],
+      "de": [
+        "Welcher Checkout-Codepfad ist der aktive, den jetzt jeder Nutzer trifft?",
+        "Was ist der aktive Schalterzustand für den aktuellen Kassenablauf?",
+        "Der heute geltende Pfad für die Kasse?"
+      ]
+    },
+    "rationale": "The rolled-out new-checkout path is current; the retired old path is superseded dead code."
+  },
+  {
+    "group": "gc-pause-cause",
+    "split": "dev",
+    "families": [
+      "cause-vs-coincidence"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "The request stalls came from long garbage-collection pauses; the heap grew until stop-the-world collections froze the service for seconds.",
+      "de": "Die Anfragestaus kamen von langen Speicherbereinigungspausen; der Heap wuchs, bis Stop-the-World-Sammlungen den Dienst sekundenlang einfroren."
+    },
+    "hard": [
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A logo change deployed near the stalls but only altered a static asset and ran no server code.",
+        "de": "Eine Logo-Änderung wurde nahe den Staus bereitgestellt, veränderte aber nur ein statisches Bild und führte keinen Servercode aus."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What really made the requests freeze for seconds at a time?",
+        "Why did the service periodically lock up, the true cause?",
+        "The genuine mechanism behind the stalls, not the coincident change?"
+      ],
+      "de": [
+        "Was ließ die Anfragen wirklich sekundenweise einfrieren?",
+        "Warum blockierte der Dienst zeitweise, die wahre Ursache?",
+        "Der eigentliche Mechanismus hinter den Staus, nicht die zufällige Änderung?"
+      ]
+    },
+    "rationale": "The GC pauses are the cause; the logo change is a coincidence that ran no server code."
+  },
+  {
+    "group": "queue-backlog-cause",
+    "split": "dev",
+    "families": [
+      "cause-vs-coincidence"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "The queue backlog built up because a slow downstream API halved consumer throughput, so messages arrived faster than they drained.",
+      "de": "Der Warteschlangenstau baute sich auf, weil eine langsame nachgelagerte API den Verbraucherdurchsatz halbierte, sodass Nachrichten schneller ankamen, als sie abflossen."
+    },
+    "hard": [
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A newsletter send coincided with the backlog but published to a static archive and generated none of the queued messages.",
+        "de": "Ein Newsletter-Versand fiel mit dem Stau zusammen, veröffentlichte aber in ein statisches Archiv und erzeugte keine der eingereihten Nachrichten."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What actually caused messages to pile up faster than we consumed them?",
+        "Why did the backlog grow, the real bottleneck downstream?",
+        "The true driver of the queue buildup, not the coincident send?"
+      ],
+      "de": [
+        "Was ließ Nachrichten wirklich schneller anwachsen, als wir sie verbrauchten?",
+        "Warum wuchs der Stau, der echte nachgelagerte Engpass?",
+        "Der wahre Treiber des Warteschlangenaufbaus, nicht der zufällige Versand?"
+      ]
+    },
+    "rationale": "The slow downstream API is the cause; the newsletter send is a coincidence that generated no queued messages."
+  },
+  {
+    "group": "jobid-jr7788",
+    "split": "dev",
+    "families": [
+      "identifier-tokens"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "Batch job JR-7788 is the nightly payroll export; its logs show the file written to the bank drop folder.",
+      "de": "Stapelauftrag JR-7788 ist der nächtliche Gehaltsexport; seine Protokolle zeigen die in den Bank-Ablageordner geschriebene Datei."
+    },
+    "hard": [
+      {
+        "family": "identifier-tokens",
+        "en": "Batch job JR-7888 is the marketing list sync and has nothing to do with the payroll export.",
+        "de": "Stapelauftrag JR-7888 ist der Abgleich der Marketingliste und hat nichts mit dem Gehaltsexport zu tun."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What does batch job JR-7788 produce each night?",
+        "Which output belongs to the JR-7788 run?",
+        "Where does JR-7788 write its file?"
+      ],
+      "de": [
+        "Was erzeugt Stapelauftrag JR-7788 jede Nacht?",
+        "Welche Ausgabe gehört zum JR-7788-Lauf?",
+        "Wohin schreibt JR-7788 seine Datei?"
+      ]
+    },
+    "rationale": "JR-7788 and JR-7888 are one digit apart; only the exact JR-7788 payroll note matches."
+  },
+  {
+    "group": "release-tag",
+    "split": "dev",
+    "families": [
+      "identifier-tokens"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Release tag v12.4.0 carries the checkout fix and is the build shipped to production last Tuesday.",
+      "de": "Das Release-Etikett v12.4.0 trägt die Checkout-Korrektur und ist der letzten Dienstag in die Produktion ausgelieferte Build."
+    },
+    "hard": [
+      {
+        "family": "identifier-tokens",
+        "en": "Release tag v12.40 is an unrelated internal spike build and was never shipped to production.",
+        "de": "Das Release-Etikett v12.40 ist ein unabhängiger interner Test-Build und wurde nie in die Produktion ausgeliefert."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which build does release tag v12.4.0 correspond to?",
+        "What shipped under the v12.4.0 tag?",
+        "The production build carrying v12.4.0?"
+      ],
+      "de": [
+        "Welchem Build entspricht das Release-Etikett v12.4.0?",
+        "Was wurde unter dem Etikett v12.4.0 ausgeliefert?",
+        "Der Produktions-Build mit v12.4.0?"
+      ]
+    },
+    "rationale": "v12.4.0 and v12.40 are distinct version tokens; only the exact v12.4.0 note is the shipped build."
+  },
+  {
+    "group": "offline-otp",
+    "split": "dev",
+    "families": [
+      "online-vs-offline"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The offline authenticator generates a one-time code from a local seed on the device, needing no signal to log in.",
+      "de": "Der Offline-Authentifikator erzeugt aus einem lokalen Startwert auf dem Gerät einen Einmalcode und braucht kein Signal zum Anmelden."
+    },
+    "hard": [
+      {
+        "family": "online-vs-offline",
+        "en": "The SMS code path texts a one-time code over the mobile network and fails where there is no reception.",
+        "de": "Der SMS-Code-Weg schickt einen Einmalcode über das Mobilfunknetz und versagt dort, wo kein Empfang ist."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How can I get a login code on a phone with no reception?",
+        "What produces a one-time code without any network at all?",
+        "Way to authenticate offline using an on-device generator?"
+      ],
+      "de": [
+        "Wie bekomme ich einen Anmeldecode auf einem Telefon ohne Empfang?",
+        "Was erzeugt einen Einmalcode ganz ohne Netz?",
+        "Weg, um offline mit einem Generator auf dem Gerät zu authentifizieren?"
+      ]
+    },
+    "rationale": "The on-device seed generator is the offline gold; the SMS path is the online contrast that needs reception."
+  },
+  {
+    "group": "offline-export",
+    "split": "dev",
+    "families": [
+      "online-vs-offline"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The offline export writes the full report to a local file the user can carry out on a drive without any upload.",
+      "de": "Der Offline-Export schreibt den vollständigen Bericht in eine lokale Datei, die der Nutzer ohne jeden Upload auf einem Laufwerk mitnehmen kann."
+    },
+    "hard": [
+      {
+        "family": "online-vs-offline",
+        "en": "The cloud share export uploads the report to a hosted link and requires connectivity to generate it.",
+        "de": "Der Cloud-Freigabe-Export lädt den Bericht auf einen gehosteten Link hoch und braucht eine Verbindung, um ihn zu erzeugen."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I get the report onto a USB drive with no network involved?",
+        "What writes the export to a local file without uploading?",
+        "Way to take the data out offline as a file?"
+      ],
+      "de": [
+        "Wie bekomme ich den Bericht ohne Netzbeteiligung auf ein USB-Laufwerk?",
+        "Was schreibt den Export in eine lokale Datei, ohne hochzuladen?",
+        "Weg, um die Daten offline als Datei mitzunehmen?"
+      ]
+    },
+    "rationale": "The local-file export is the offline gold; the cloud share is the online contrast that needs connectivity."
+  },
+  {
+    "group": "tls-handshake",
+    "split": "train",
+    "families": [
+      "success-vs-failure"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The TLS handshake succeeded: the peer presented a valid chain, the cipher was agreed, and the encrypted channel came up.",
+      "de": "Der TLS-Handschlag gelang: der Gegenüber legte eine gültige Kette vor, die Chiffre wurde vereinbart und der verschlüsselte Kanal kam zustande."
+    },
+    "hard": [
+      {
+        "family": "success-vs-failure",
+        "en": "The TLS handshake failed: the peer's certificate chain was rejected as untrusted and the connection was dropped before any data flowed.",
+        "de": "Der TLS-Handschlag scheiterte: die Zertifikatskette des Gegenübers wurde als nicht vertrauenswürdig abgelehnt und die Verbindung vor jedem Datenfluss verworfen."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which connection negotiated encryption and came up cleanly?",
+        "Did the secure channel establish without an auth error?",
+        "Show the session where the handshake completed successfully."
+      ],
+      "de": [
+        "Welche Verbindung handelte die Verschlüsselung aus und kam sauber zustande?",
+        "Hat sich der sichere Kanal ohne Authentifizierungsfehler aufgebaut?",
+        "Zeig die Sitzung, in der der Handschlag erfolgreich abschloss."
+      ]
+    },
+    "rationale": "The completed handshake is the success; the rejected-chain handshake is the failure contrast."
+  },
+  {
+    "group": "blue-green",
+    "split": "train",
+    "families": [
+      "apply-vs-rollback"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Switching to green routes all live traffic to the green fleet and leaves blue idle as the fallback.",
+      "de": "Das Umschalten auf Grün leitet den gesamten Live-Verkehr auf die grüne Flotte und lässt Blau untätig als Rückfallebene."
+    },
+    "hard": [
+      {
+        "family": "apply-vs-rollback",
+        "en": "Switching back to blue returns all traffic to the blue fleet and abandons the green deployment.",
+        "de": "Das Zurückschalten auf Blau gibt den gesamten Verkehr an die blaue Flotte zurück und gibt die grüne Bereitstellung auf."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do we send production traffic over to the green environment?",
+        "What promotes the green fleet to serve everyone?",
+        "Way to move live users onto green?"
+      ],
+      "de": [
+        "Wie schicken wir den Produktionsverkehr auf die grüne Umgebung?",
+        "Was befördert die grüne Flotte, damit sie alle bedient?",
+        "Weg, um Live-Nutzer auf Grün zu bringen?"
+      ]
+    },
+    "rationale": "Switching to green is the apply; switching back to blue is the rollback contrast."
+  },
+  {
+    "group": "rollout-resume",
+    "split": "train",
+    "families": [
+      "apply-vs-rollback"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Resuming the paused rollout continues updating the remaining replicas onward to the new version.",
+      "de": "Das Fortsetzen des pausierten Rollouts aktualisiert die verbleibenden Repliken weiter auf die neue Version."
+    },
+    "hard": [
+      {
+        "family": "apply-vs-rollback",
+        "en": "Rolling the paused rollout back reverts the already-updated replicas to the prior version and cancels the release.",
+        "de": "Das Zurückrollen des pausierten Rollouts setzt die bereits aktualisierten Repliken auf die vorherige Version zurück und bricht das Release ab."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do we continue the halted deployment forward to finish it?",
+        "What resumes updating the rest of the fleet to the new build?",
+        "Way to carry the paused release onward?"
+      ],
+      "de": [
+        "Wie führen wir die angehaltene Bereitstellung weiter, um sie abzuschließen?",
+        "Was setzt die Aktualisierung des restlichen Verbunds auf den neuen Build fort?",
+        "Weg, um das pausierte Release weiterzuführen?"
+      ]
+    },
+    "rationale": "Resuming forward is the apply; reverting the updated replicas is the rollback contrast."
+  },
+  {
+    "group": "secret-mount",
+    "split": "train",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Secrets are delivered to the pod as files mounted from the vault into a tmpfs path the app reads at startup.",
+      "de": "Geheimnisse werden dem Pod als Dateien geliefert, die aus dem Tresor in einen tmpfs-Pfad eingehängt werden, den die App beim Start liest."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "Non-sensitive settings arrive as environment variables from a config map, a separate mechanism from secret file mounts.",
+        "de": "Nicht sensible Einstellungen kommen als Umgebungsvariablen aus einer Konfigurationskarte, ein von den Geheimnis-Dateieinhängungen getrennter Mechanismus."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How does the application receive its credentials at run time?",
+        "What path exposes the vault secrets to the container?",
+        "Way the pod gets its sensitive values on startup?"
+      ],
+      "de": [
+        "Wie erhält die Anwendung zur Laufzeit ihre Anmeldedaten?",
+        "Welcher Pfad stellt die Tresor-Geheimnisse dem Container bereit?",
+        "Wie bekommt der Pod beim Start seine sensiblen Werte?"
+      ]
+    },
+    "rationale": "Mounted secret files answer the query; env-var config maps are the adjacent non-secret mechanism."
+  },
+  {
+    "group": "retry-policy",
+    "split": "train",
+    "families": [
+      "ordinary-paraphrase"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Failed calls are retried with exponential backoff, doubling the wait each attempt up to a ceiling before giving up.",
+      "de": "Fehlgeschlagene Aufrufe werden mit exponentiellem Rückzug wiederholt, wobei sich die Wartezeit je Versuch bis zu einer Obergrenze verdoppelt, bevor aufgegeben wird."
+    },
+    "hard": [
+      {
+        "family": "ordinary-paraphrase",
+        "en": "The overall request deadline caps total time end to end and is a separate limit from how retries are spaced.",
+        "de": "Die Gesamt-Anfragefrist begrenzt die Gesamtzeit von Anfang bis Ende und ist ein von der Wiederholungsstaffelung getrenntes Limit."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How are repeated attempts spaced out after a call fails?",
+        "What sets the growing delay between retries?",
+        "Way the client backs off before trying again?"
+      ],
+      "de": [
+        "Wie werden wiederholte Versuche gestaffelt, nachdem ein Aufruf fehlschlägt?",
+        "Was legt die wachsende Verzögerung zwischen Wiederholungen fest?",
+        "Wie zieht sich der Client zurück, bevor er es erneut versucht?"
+      ]
+    },
+    "rationale": "Exponential backoff answers the retry-spacing query; the request deadline is an adjacent overall limit."
+  },
+  {
+    "group": "read-replica-lag",
+    "split": "train",
+    "families": [
+      "cause-vs-coincidence"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "The replica fell behind because a long-running write transaction on the primary held the replication stream, so applied changes queued up.",
+      "de": "Die Replik geriet in Rückstand, weil eine langlaufende Schreibtransaktion auf dem Primär den Replikationsstrom festhielt, sodass angewendete Änderungen sich stauten."
+    },
+    "hard": [
+      {
+        "family": "cause-vs-coincidence",
+        "en": "A read-heavy report ran on the replica at the same time but only issued selects and added nothing to replication lag.",
+        "de": "Ein leselastiger Bericht lief zur selben Zeit auf der Replik, stellte aber nur Abfragen und trug nichts zum Replikationsrückstand bei."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What truly put the replica behind the primary?",
+        "Why did replication lag build up, the real cause?",
+        "The actual reason for the sync delay, not the coincident report?"
+      ],
+      "de": [
+        "Was setzte die Replik wirklich hinter den Primär zurück?",
+        "Warum baute sich der Replikationsrückstand auf, die echte Ursache?",
+        "Der tatsächliche Grund für die Synchronverzögerung, nicht der zufällige Bericht?"
+      ]
+    },
+    "rationale": "The long write transaction is the cause; the read-only report is a coincidence that added no lag."
+  },
+  {
+    "group": "account-lock",
+    "split": "train",
+    "families": [
+      "permit-vs-prohibit"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Unlocking the account after identity is verified restores the customer's ability to sign in and transact.",
+      "de": "Das Entsperren des Kontos nach bestätigter Identität stellt die Fähigkeit des Kunden wieder her, sich anzumelden und Geschäfte zu tätigen."
+    },
+    "hard": [
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Keeping the account locked denies every sign-in attempt until the fraud review clears it.",
+        "de": "Das Gesperrthalten des Kontos verweigert jeden Anmeldeversuch, bis die Betrugsprüfung es freigibt."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I let a verified customer back into their account?",
+        "What restores sign-in access after the hold is cleared?",
+        "Way to permit the user to log in again?"
+      ],
+      "de": [
+        "Wie lasse ich einen bestätigten Kunden wieder in sein Konto?",
+        "Was stellt den Anmeldezugang nach aufgehobener Sperre wieder her?",
+        "Weg, um dem Nutzer die erneute Anmeldung zu erlauben?"
+      ]
+    },
+    "rationale": "Unlocking permits sign-in; keeping the account locked is the prohibit contrast."
+  },
+  {
+    "group": "quota-raise",
+    "split": "train",
+    "families": [
+      "permit-vs-prohibit"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Granting the tenant a higher API quota lifts their per-minute cap so heavier workloads stop getting throttled.",
+      "de": "Das Gewähren eines höheren API-Kontingents an den Mandanten hebt seine Minutengrenze an, sodass schwerere Lasten nicht mehr gedrosselt werden."
+    },
+    "hard": [
+      {
+        "family": "permit-vs-prohibit",
+        "en": "Denying the quota increase keeps the tenant at the old cap and continues throttling anything above it.",
+        "de": "Das Ablehnen der Kontingenterhöhung belässt den Mandanten an der alten Grenze und drosselt weiterhin alles darüber."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do I let a tenant make more API calls per minute?",
+        "What raises the customer's rate ceiling so they stop hitting limits?",
+        "Way to grant a bigger request allowance?"
+      ],
+      "de": [
+        "Wie lasse ich einen Mandanten mehr API-Aufrufe pro Minute machen?",
+        "Was hebt die Ratengrenze des Kunden an, damit er nicht mehr anstößt?",
+        "Weg, um ein größeres Anfragekontingent zu gewähren?"
+      ]
+    },
+    "rationale": "Raising the quota permits more calls; denying the increase is the prohibit contrast."
+  },
+  {
+    "group": "protocol-compression",
+    "split": "train",
+    "families": [
+      "current-vs-superseded"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The edge now serves responses with Brotli compression, the encoding the gateway currently applies to compressible bodies.",
+      "de": "Der Edge liefert Antworten jetzt mit Brotli-Kompression aus, der Kodierung, die das Gateway derzeit auf komprimierbare Inhalte anwendet."
+    },
+    "hard": [
+      {
+        "family": "current-vs-superseded",
+        "en": "The older deflate encoding was retired and is no longer offered, kept only to decode a few legacy clients' uploads.",
+        "de": "Die ältere Deflate-Kodierung wurde ausgemustert und wird nicht mehr angeboten, nur noch zum Entschlüsseln der Uploads einiger Altclients erhalten."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which compression does the gateway apply to responses today?",
+        "What is the active content encoding for compressible bodies now?",
+        "The current scheme the edge uses to shrink responses?"
+      ],
+      "de": [
+        "Welche Kompression wendet das Gateway heute auf Antworten an?",
+        "Was ist die aktive Inhaltskodierung für komprimierbare Inhalte jetzt?",
+        "Das aktuelle Verfahren, mit dem der Edge Antworten verkleinert?"
+      ]
+    },
+    "rationale": "Brotli is current; deflate is superseded, so the query for today's encoding prefers Brotli."
+  },
+  {
+    "group": "protocol-gzip-note",
+    "split": "train",
+    "families": [
+      "current-vs-superseded"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Clients should request the v2 telemetry schema, the shape the ingest pipeline currently parses for new events.",
+      "de": "Clients sollten das Telemetrie-Schema v2 anfordern, die Form, die die Aufnahme-Pipeline derzeit für neue Ereignisse verarbeitet."
+    },
+    "hard": [
+      {
+        "family": "current-vs-superseded",
+        "en": "The v1 telemetry schema was superseded and is dropped on ingest now, retained only to replay archived event dumps.",
+        "de": "Das Telemetrie-Schema v1 wurde abgelöst und wird bei der Aufnahme jetzt verworfen, nur noch zum Wiederabspielen archivierter Ereignisabzüge erhalten."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which telemetry schema does the pipeline parse for new events today?",
+        "What is the active event shape clients should emit now?",
+        "The current schema accepted on ingest?"
+      ],
+      "de": [
+        "Welches Telemetrie-Schema verarbeitet die Pipeline heute für neue Ereignisse?",
+        "Was ist die aktive Ereignisform, die Clients jetzt senden sollten?",
+        "Das aktuelle bei der Aufnahme akzeptierte Schema?"
+      ]
+    },
+    "rationale": "The v2 schema is current; v1 is superseded, so the query for what ingest parses now prefers v2."
+  },
+  {
+    "group": "metrics-scrape",
+    "split": "train",
+    "families": [
+      "mutate-vs-inspect"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The scrape endpoint exposes current counter values for the collector to read and never changes them.",
+      "de": "Der Scrape-Endpunkt legt die aktuellen Zählerwerte offen, damit der Sammler sie liest, und verändert sie nie."
+    },
+    "hard": [
+      {
+        "family": "mutate-vs-inspect",
+        "en": "The admin reset call zeroes the counters in place, mutating the very values the scrape only reports.",
+        "de": "Der Admin-Reset-Aufruf nullt die Zähler an Ort und Stelle und verändert genau die Werte, die der Scrape nur meldet."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which endpoint just publishes the counter values for reading?",
+        "How does the collector observe metrics without altering them?",
+        "Way to read the current counters non-destructively?"
+      ],
+      "de": [
+        "Welcher Endpunkt veröffentlicht nur die Zählerwerte zum Lesen?",
+        "Wie beobachtet der Sammler Metriken, ohne sie zu verändern?",
+        "Weg, um die aktuellen Zähler zerstörungsfrei zu lesen?"
+      ]
+    },
+    "rationale": "The scrape endpoint inspects; the admin reset is the mutating contrast that zeroes counters."
+  },
+  {
+    "group": "grants-inspect",
+    "split": "train",
+    "families": [
+      "mutate-vs-inspect"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "Listing grants shows which roles hold which privileges and reads the catalog without changing access.",
+      "de": "Das Auflisten der Berechtigungen zeigt, welche Rollen welche Privilegien halten, und liest den Katalog, ohne Zugriff zu ändern."
+    },
+    "hard": [
+      {
+        "family": "mutate-vs-inspect",
+        "en": "Revoking a grant removes a privilege from a role and rewrites the access catalog on the spot.",
+        "de": "Das Entziehen einer Berechtigung entfernt ein Privileg von einer Rolle und schreibt den Zugriffskatalog sofort neu."
+      }
+    ],
+    "queries": {
+      "en": [
+        "Which command shows role privileges without altering access?",
+        "How can I inspect who holds which grants read-only?",
+        "Way to view the privilege catalog without changing it?"
+      ],
+      "de": [
+        "Welcher Befehl zeigt Rollenprivilegien, ohne den Zugriff zu ändern?",
+        "Wie kann ich schreibgeschützt prüfen, wer welche Berechtigungen hält?",
+        "Weg, um den Privilegienkatalog zu sehen, ohne ihn zu ändern?"
+      ]
+    },
+    "rationale": "Listing grants inspects; revoking a grant is the mutating contrast that rewrites access."
+  },
+  {
+    "group": "errorcode-h17",
+    "split": "train",
+    "families": [
+      "identifier-tokens"
+    ],
+    "provenance_gold": "derived-failure-pattern",
+    "gold": {
+      "en": "Alarm H-17 on the pump controller signals low inlet pressure; open the feed valve to clear it.",
+      "de": "Alarm H-17 an der Pumpensteuerung meldet niedrigen Eingangsdruck; das Zulaufventil öffnen, um ihn zu beheben."
+    },
+    "hard": [
+      {
+        "family": "identifier-tokens",
+        "en": "Alarm H-71 on the pump controller signals an overtemperature trip and calls for cooling, not the feed valve.",
+        "de": "Alarm H-71 an der Pumpensteuerung meldet eine Übertemperaturabschaltung und verlangt Kühlung, nicht das Zulaufventil."
+      }
+    ],
+    "queries": {
+      "en": [
+        "What action clears pump alarm H-17?",
+        "How do I respond to the H-17 controller warning?",
+        "Fix for alarm code H-17?"
+      ],
+      "de": [
+        "Welche Maßnahme behebt den Pumpenalarm H-17?",
+        "Wie reagiere ich auf die H-17-Steuerungswarnung?",
+        "Behebung für den Alarmcode H-17?"
+      ]
+    },
+    "rationale": "H-17 and H-71 are transposed codes; only the exact H-17 low-pressure note with the feed-valve fix is correct."
+  },
+  {
+    "group": "offline-backup",
+    "split": "train",
+    "families": [
+      "online-vs-offline"
+    ],
+    "provenance_gold": "synthetic-contrast",
+    "gold": {
+      "en": "The offline backup writes the nightly snapshot to a local tape library that never leaves the building.",
+      "de": "Die Offline-Sicherung schreibt die nächtliche Momentaufnahme in eine lokale Bandbibliothek, die das Gebäude nie verlässt."
+    },
+    "hard": [
+      {
+        "family": "online-vs-offline",
+        "en": "The cloud backup streams the snapshot to an object store over the internet and needs a live uplink.",
+        "de": "Die Cloud-Sicherung streamt die Momentaufnahme über das Internet in einen Objektspeicher und braucht eine aktive Anbindung."
+      }
+    ],
+    "queries": {
+      "en": [
+        "How do we keep a nightly copy that never leaves our own site?",
+        "What backs up the snapshot locally with no internet upload?",
+        "Way to store the backup offline on premises?"
+      ],
+      "de": [
+        "Wie behalten wir eine nächtliche Kopie, die unseren Standort nie verlässt?",
+        "Was sichert die Momentaufnahme lokal ohne Internet-Upload?",
+        "Weg, um die Sicherung offline vor Ort zu lagern?"
+      ]
+    },
+    "rationale": "The local tape library is the offline gold; the cloud object store is the online contrast."
+  }
+]
