@@ -28,8 +28,9 @@ for a given size.
 - **Ruled out, size (int8 model alone > 150 MB):** `gte-multilingual-reranker-base` (306 M),
   `mDeBERTa-v3-base-mnli-xnli` (278 M), `bge-reranker-v2-m3` (568 M).
 
-**Escalation — this forces a charter/spec decision (design §7 Footprint):** (1) raise cap to
-~200 MB; (2) reclassify onnxruntime+tokenizers as core (like numpy) -> incremental 135.7 MB,
-under 150; (3) small-vocab non-XLM-R model (quality unproven, high risk); (4) NO-GO on semantic,
-keep deterministic recall. Recommend carrying `mmarco-mMiniLMv2-L12-H384-v1` as the single model
-candidate and deciding 1 vs 2 vs 4 explicitly before GO.
+**Decision (2026-09-04): Option 2 chosen.** The ONNX runtime + `tokenizers` (with numpy) are the
+optional runtime baseline, not the stdlib-only MNEMOS core; the <= 150 MB budget counts model +
+tokenizer only -> `mmarco-mMiniLMv2-L12-H384-v1` = 135.7 MB, under 150. Design §7 Footprint gate
+updated. That model is carried as the single candidate (recall quality still to be proven by the
+candidate-recall and domain-adaptation tickets). Ruled out: `jina-reranker-v2` (non-commercial);
+`gte`/`mDeBERTa`/`bge` (int8 model alone > 150 MB).

@@ -110,9 +110,11 @@ The principles above are pinned as a machine-checked contract:
 | Determinism | Identical ranking and abstention across 20 repeated runs |
 | Offline | Zero attempted network connections during load and inference |
 | Performance | Warm end-to-end p95 <= 1 second at K=20; cold initialization <= 3 seconds |
-| Footprint | Optional installed companion <= 150 MB incremental to core, including installed model, tokenizer, and runtime dependencies but excluding installer caches |
+| Footprint | Optional installed companion <= 150 MB incremental: certified model weights + tokenizer files only. The ONNX runtime, `tokenizers`, and numpy are the optional runtime baseline (the vector/semantic extra environment), outside the stdlib-only MNEMOS core and not counted in this budget; installer caches excluded. Measured on the certified target (Linux x86-64, CPython 3.12). |
 
 Reports include absolute counts and 95% confidence intervals; an observed 100% is not described as universal proof. Safety, exact-token, offline, determinism, and footprint failures are hard NO-GO results.
+
+**Footprint boundary (decided 2026-09-04, Option 2).** The <= 150 MB budget counts the certified model weights + tokenizer only. Evidence (`docs/wayfinder/mnemos-semantic-recall-release-decision/evidence/model-runtime-redistribution-viability.md`) showed that the XLM-R 250 K-vocabulary embedding (~96 MB int8) plus the ONNX runtime (37.9 MB installed) plus the tokenizer (17.1 MB) is a ~151 MB structural floor before any transformer layer; counting the runtime against the budget makes every viable multilingual model infeasible. The ONNX runtime and `tokenizers` are therefore the optional runtime baseline (shared with the existing numpy/model2vec vector extra); the stdlib-only MNEMOS core is unchanged. Under this boundary the one carried candidate `mmarco-mMiniLMv2-L12-H384-v1` is 118.6 + 17.1 = 135.7 MB.
 
 ## 8. Conditional runtime architecture
 

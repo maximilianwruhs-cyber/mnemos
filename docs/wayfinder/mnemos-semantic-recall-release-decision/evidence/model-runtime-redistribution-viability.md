@@ -37,6 +37,15 @@ installed companion is **~182.7 MB — over budget by ~33 MB** (section 3).
 This is a GO/NO-GO-relevant boundary result: it does not depend on model choice within the
 XLM-R family, and it is not fixable by picking a smaller layer count.
 
+### Decision taken (2026-09-04) — Option 2
+
+Chosen: the ONNX runtime, `tokenizers`, and numpy are the **optional runtime baseline** (the
+vector/semantic extra environment), outside the stdlib-only MNEMOS core; the <= 150 MB budget
+counts **model weights + tokenizer only**. Under this boundary `mmarco-mMiniLMv2-L12-H384-v1` is
+**135.7 MB (118.6 + 17.1), under 150**. Design §7 Footprint gate updated accordingly. The
+"infeasible" verdict below is against the *original* runtime-inclusive gate and is the reason the
+boundary was moved; it is retained as the rationale.
+
 ---
 
 ## 2. License screen (redistribution)
@@ -59,7 +68,8 @@ evaluation... For commercial usage, please refer to Jina AI's APIs." Not shippab
 Runtime deps (redistributable):
 - **onnxruntime** — MIT (Microsoft). cp312 manylinux_2_28 x86_64 wheel exists.
 - **tokenizers** — Apache-2.0 (Hugging Face). cp39-abi3 manylinux2014 x86_64 wheel (runs on 3.12).
-- **numpy** — already present in MNEMOS core; excluded from incremental footprint by the §7 rule.
+- **numpy** — part of the optional vector extra (`requirements-vec.txt`: "MNEMOS core needs none of
+  these"), **not** the stdlib-only core; belongs to the shared runtime baseline, not the budget.
 
 ---
 
@@ -81,7 +91,7 @@ This repo already ships **pre-quantized int8 ONNX for x86-64** (no self-quantiza
 | `config.json` + special tokens | ~0.05 | HF tree |
 | onnxruntime 1.20.1 (uncompressed) | 37.9 | PyPI unzip |
 | tokenizers 0.21.0 (uncompressed) | 9.1 | PyPI unzip |
-| numpy | excluded (core) | §7 rule |
+| numpy | (runtime baseline) | not in model+tokenizer budget |
 | **Total incremental** | **~182.7** | **over by ~33 MB** |
 
 Substituting `sentencepiece.bpe.model` (5.1 MB) for `tokenizer.json` saves 12 MB ->
@@ -126,9 +136,10 @@ mutually exclusive. The decision must pick one:
 
 1. **Raise the footprint cap to ~200 MB.** `mmarco-mMiniLMv2-L12-H384-v1` then fits with margin
    (~182.7 MB). Cleanest path to a real semantic companion; requires editing the §7 Footprint gate.
-2. **Reclassify onnxruntime (and tokenizers) as core, not companion.** Then the incremental
-   companion = model + tokenizer only = 118.6 + 17.1 = **135.7 MB, under 150** for the front-runner.
-   Defensible if the runtime is treated like numpy (already core). Requires a core-dependency decision.
+2. **[CHOSEN] Treat the ONNX runtime + `tokenizers` (with numpy) as the optional runtime baseline,
+   not part of the model+tokenizer budget.** Then the counted footprint = model + tokenizer =
+   118.6 + 17.1 = **135.7 MB, under 150**. The stdlib-only MNEMOS core is unchanged; the runtime is
+   the optional vector/semantic extra environment.
 3. **Small-vocab (non-XLM-R) multilingual model.** Escapes the 96 MB embedding floor, but no
    strong de+en reranker at small vocab was found; quality is unproven -> high risk against the §7
    recall gates.
