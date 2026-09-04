@@ -24,11 +24,12 @@ Reach an evidence-backed release decision for MNEMOS semantic recall: either an 
 - [Select and declare one model candidate](tickets/select-and-declare-one-model-candidate.md): Signed and frozen parameters for the single allowed training attempt (Candidate v1) using `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` (135.7 MB). Objective: Hybrid Margin MSE / Multiple Negatives Ranking (MNRL) using strictly sealed train/dev partitions. Frozen B1 candidate recall gates (>=99% overall, 100% safety) and B2 Reranked Top-1 gates (>=94.8% overall, 100% safety) are declared ([evidence](evidence/candidate-declaration-v1.md)).
 - [Prove domain adaptation viability](tickets/prove-domain-adaptation-viability.md): Training and adaptation on `corpus-v2/train/` using the Margin MSE + MNRL loss failed to satisfy development gates, flatlining Candidate Recall at **94.9% (148/156)** overall and **92.6% (100/108)** on the Safety-Slice. Core obstacles include B1 retrieval starvation at the boundary, German compound subword token fragmentation, and training set overfitting under de-identification rules, resulting in a **TERMINAL_NO_GO** recommendation ([evidence](evidence/domain-adaptation-viability-report-v1.md)).
 - [Calibrate safe semantic abstention](tickets/calibrate-safe-semantic-abstention.md): Due to the terminal model failure, active semantic inference is obsolete. To guarantee absolute safety and zero opposite-intent promotions, the margin-based decision threshold $\tau$ is frozen to **Infinity ($\infty$)**, ensuring 100% byte-identical deterministic fallback to standard lexical BM25 ([evidence](evidence/calibrate-safe-semantic-abstention-report-v1.md)).
+- [Decide the offline companion package](tickets/decide-the-offline-companion-package.md): Resolved as a zero-footprint (0.0 MB) vacuous specification. No model files, tokenizers, ONNX wheels, or third-party native libraries will be distributed, maintaining the core's pristine stdlib-only invariant ([evidence](evidence/certified-offline-companion-package-report-v1.md)).
+- [Decide the certified runtime contract](tickets/decide-the-certified-runtime-contract.md): Finalized as a strict fallback contract where `probe()` immediately returns `LEXICAL_ONLY`, `decide()` returns raw lexical BM25 candidates with deterministic score ties broken alphabetically by `note_id`, and raw-vector calculations are fully excised ([evidence](evidence/certified-runtime-contract-report-v1.md)).
 
 ## Not yet specified
 
-- Final offline wheel layout for the certified companion.
-- Exact runtime API details beyond the approved `probe()` and `decide()` boundary.
+- None (All architectural aspects fully specified).
 
 ## Out of scope
 
