@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Behavioral tests for the staged semantic-recall baseline."""
 from __future__ import annotations
+import hashlib
+import json
+import tempfile
+from pathlib import Path
 
 import unittest
 from unittest import mock
@@ -223,6 +227,149 @@ class PolicyEvaluationTests(unittest.TestCase):
             baseline.evaluate_candidate_policy(
                 split, "current_ascii", 20, self.semantic_rankings()
             )
+
+
+
+def metric_query(query_id="q-1", language="de", scenario_group="g-1"):
+    return {
+        "id": query_id,
+        "gold": ["n-en", "n-de"],
+        "hard_negatives": [
+            {"note_id": "n-hard", "contrast_family": "permit-vs-prohibit"}
+        ],
+        "language": language,
+        "contrast_families": ["permit-vs-prohibit"],
+        "provenance": "synthetic-contrast",
+        "scenario_group": scenario_group,
+    }
+
+
+def metric_notes():
+    return {
+        "n-en": {"language": "en"},
+        "n-de": {"language": "de"},
+        "n-hard": {"language": "de"},
+        "n-x": {"language": "en"},
+        "n-protected": {"language": "en"},
+    }
+
+
+class MetricTests(unittest.TestCase):
+    def test_any_gold_counts_once_and_records_language_and_hard_negative_ranks(self):
+        got = baseline.score_query(
+            metric_query(), ["n-x", "n-de", "n-en", "n-hard"], set(), metric_notes()
+        )
+        self.assertTrue(got["hit_at_3"])
+        self.assertEqual(got["first_gold_rank"], 2)
+        self.assertEqual(got["reciprocal_rank"], 0.5)
+        self.assertTrue(got["same_language_gold_at_3"])
+        self.assertTrue(got["cross_language_gold_at_3"])
+        self.assertTrue(got["both_golds_at_3"])
+        self.assertEqual(got["hard_negative_ranks"], {"n-hard": 4})
+
+    def test_hard_negative_top_one_is_explicit(self):
+        got = baseline.score_query(
+            metric_query(), ["n-hard", "n-de"], set(), metric_notes()
+        )
+        self.assertEqual(got["top1_hard_negative"], "n-hard")
+
+    def test_empty_ranking_is_zero_candidate_and_not_eligible(self):
+        got = baseline.score_query(metric_query(), [], set(), metric_notes())
+        self.assertTrue(got["zero_candidates"])
+        self.assertFalse(got["eligible"])
+
+    def test_protected_gold_disqualifies_otherwise_eligible_query(self):
+        unprotected = baseline.score_query(
+            metric_query(), ["n-de", "n-hard"], set(), metric_notes()
+        )
+        protected = baseline.score_query(
+            metric_query(), ["n-de", "n-hard"], {"n-de"}, metric_notes()
+        )
+        self.assertTrue(unprotected["eligible"])
+        self.assertFalse(protected["eligible"])
+
+    def test_rerank_margins_ignore_protected_none_scores(self):
+        got = baseline.score_rerank(
+            metric_query(),
+            [("n-protected", None), ("n-de", 2.5), ("n-hard", 1.0)],
+            {"n-protected"}, metric_notes(),
+        )
+        self.assertEqual(got["semantic_top1_top2_margin"], 1.5)
+        self.assertEqual(got["semantic_top1_best_hard_margin"], 1.5)
+
+    def test_aggregate_reports_language_family_and_provenance_slices(self):
+        first = metric_query("q-1", "de", "g-1")
+        second = metric_query("q-2", "en", "g-2")
+        results = {
+            "q-1": baseline.score_query(first, ["n-de"], set(), metric_notes()),
+            "q-2": baseline.score_query(second, ["n-x"], set(), metric_notes()),
+        }
+        got = baseline.aggregate_results([first, second], results)
+        self.assertEqual(got["overall"]["queries"], 2)
+        self.assertEqual(got["overall"]["hit_at_1"], 1)
+        self.assertEqual(got["languages"]["de"]["hit_at_1"], 1)
+        self.assertEqual(got["languages"]["en"]["hit_at_1"], 0)
+        self.assertEqual(got["families"]["permit-vs-prohibit"]["queries"], 2)
+        self.assertEqual(got["provenance"]["synthetic-contrast"]["queries"], 2)
+
+    def test_compare_results_counts_corrections_and_regressions(self):
+        base = {
+            "q-fix": {"hit_at_1": False, "hit_at_20": True},
+            "q-break": {"hit_at_1": True, "hit_at_20": True},
+        }
+        reranked = {
+            "q-fix": {"hit_at_1": True, "hit_at_20": True},
+            "q-break": {"hit_at_1": False, "hit_at_20": True},
+        }
+        self.assertEqual(baseline.compare_results(base, reranked), {
+            "corrections": 1, "correction_query_ids": ["q-fix"],
+            "regressions": 1, "regression_query_ids": ["q-break"],
+        })
+
+
+class BootstrapTests(unittest.TestCase):
+    def test_resamples_whole_scenario_groups(self):
+        rows = [
+            {"scenario_group": "a", "correct": 1.0},
+            {"scenario_group": "a", "correct": 1.0},
+            {"scenario_group": "b", "correct": 0.0},
+        ]
+        got = baseline.cluster_interval(rows, "correct", seed=0, samples=1)
+        self.assertEqual(got["groups"], 2)
+        self.assertAlmostEqual(got["observed"], 2 / 3)
+        self.assertEqual((got["lower"], got["upper"]), (0.0, 0.0))
+
+    def test_paired_interval_requires_matching_queries(self):
+        left = [{"query_id": "q-1", "scenario_group": "a", "correct": 0.0}]
+        right = [{"query_id": "q-2", "scenario_group": "a", "correct": 1.0}]
+        with self.assertRaisesRegex(baseline.BaselineError, "paired query IDs"):
+            baseline.paired_cluster_interval(left, right, "correct", seed=7, samples=10)
+
+    def test_paired_interval_is_deterministic_and_uses_aligned_groups(self):
+        left = [
+            {"query_id": "q-1", "scenario_group": "a", "correct": 0.0},
+            {"query_id": "q-2", "scenario_group": "a", "correct": 0.0},
+            {"query_id": "q-3", "scenario_group": "b", "correct": 1.0},
+        ]
+        right = [
+            {"query_id": "q-1", "scenario_group": "a", "correct": 1.0},
+            {"query_id": "q-2", "scenario_group": "a", "correct": 1.0},
+            {"query_id": "q-3", "scenario_group": "b", "correct": 1.0},
+        ]
+        first = baseline.paired_cluster_interval(left, right, "correct", seed=7, samples=100)
+        second = baseline.paired_cluster_interval(left, right, "correct", seed=7, samples=100)
+        self.assertEqual(first, second)
+        self.assertAlmostEqual(first["observed"], 2 / 3)
+
+
+class CanonicalArtifactTests(unittest.TestCase):
+    def test_write_json_uses_canonical_utf8_and_returns_its_hash(self):
+        with tempfile.TemporaryDirectory(dir="/tmp") as directory:
+            path = Path(directory) / "report.json"
+            digest = baseline.write_json(path, {"b": 2, "a": "ü"})
+            expected = b'{"a":"\xc3\xbc","b":2}\n'
+            self.assertEqual(path.read_bytes(), expected)
+            self.assertEqual(digest, hashlib.sha256(expected).hexdigest())
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
