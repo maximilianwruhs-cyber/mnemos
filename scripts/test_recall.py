@@ -113,102 +113,32 @@ class RecallTests(unittest.TestCase):
     def test_selftest_entrypoint_passes(self):
         self.assertEqual(recall.selftest(), 0)
 
-    def test_search_without_stage_is_unchanged(self):
+    def test_result_rows_carry_no_vector_field(self):
         docs = self.corpus({"a.md": "# a\nwidget widget common\n",
                             "b.md": "# b\ncommon common common\n"})
         rows = recall.search("widget", docs)
         self.assertTrue(rows[0]["path"].endswith("a.md"))
-        self.assertNotIn("vec", rows[0])  # legacy shape untouched when stage is None
-
-    def test_vec_disabled_env_forces_lexical(self):
-        import os
-        os.environ["RECALL_VEC"] = "0"
-        self.addCleanup(lambda: os.environ.pop("RECALL_VEC", None))
-        self.assertFalse(recall._vec_enabled(100000))
-
-    def test_vec_activation_threshold(self):
-        import os
-        os.environ.pop("RECALL_VEC", None)
-        self.assertFalse(recall._vec_enabled(10))
-        self.assertTrue(recall._vec_enabled(recall.VEC_ACTIVATE_N))
-
-    def test_hybrid_surfaces_paraphrase_only_note(self):
-        import os, importlib.util, sys, shutil, json, tempfile
-        prev = sys.modules.get("vecidx")
-        vspec = importlib.util.spec_from_file_location(
-            "vecidx", Path(__file__).resolve().with_name("vecidx.py"))
-        vecidx = importlib.util.module_from_spec(vspec)
-        sys.modules["vecidx"] = vecidx
-        def _restore_vecidx():
-            if prev is None:
-                sys.modules.pop("vecidx", None)
-            else:
-                sys.modules["vecidx"] = prev
-        self.addCleanup(_restore_vecidx)
-        vspec.loader.exec_module(vecidx)
-        if not vecidx.available():
-            self.skipTest("vector model not fetched (Task 8)")
-        work = tempfile.mkdtemp(prefix="hybrid_", dir="/tmp")
-        self.addCleanup(lambda: shutil.rmtree(work, ignore_errors=True))
-        files = {
-            "net.md": "# net\nSockets to external hosts raise OSError; no outbound egress.\n",
-            "cof.md": "# cof\nThe floor-three coffee machine is broken.\n",
-        }
-        for n, b in files.items():
-            Path(work, n).write_text(b, encoding="utf-8")
-        Path(work, "_manifest.json").write_text(
-            json.dumps({n: f"/Memory/{n}" for n in files}), encoding="utf-8")
-        docs = recall.build_corpus(work)
-        vecidx.build(work, docs=docs)
-        os.environ["RECALL_VEC"] = "1"
-        self.addCleanup(lambda: os.environ.pop("RECALL_VEC", None))
-        # query shares NO content token with net.md ("egress"/"sockets" absent)
-        hits = recall.search("cannot reach the internet", docs, stage=work)
-        self.assertTrue(hits and hits[0]["path"] == "/Memory/net.md", hits)
-        self.assertGreater(hits[0]["vec"], 0.0)
-
-    def test_empty_vec_hits_preserve_lexical_order(self):
-        """Index present + RECALL_VEC=1 but no cosine above floor → same as stage=None."""
-        import os, importlib.util, sys, shutil, json, tempfile
-        prev = sys.modules.get("vecidx")
-        vspec = importlib.util.spec_from_file_location(
-            "vecidx", Path(__file__).resolve().with_name("vecidx.py"))
-        vecidx = importlib.util.module_from_spec(vspec)
-        sys.modules["vecidx"] = vecidx
-        def _restore_vecidx():
-            if prev is None:
-                sys.modules.pop("vecidx", None)
-            else:
-                sys.modules["vecidx"] = prev
-        self.addCleanup(_restore_vecidx)
-        vspec.loader.exec_module(vecidx)
-        if not vecidx.available():
-            self.skipTest("vector model not fetched (Task 8)")
-        work = tempfile.mkdtemp(prefix="emptyvec_", dir="/tmp")
-        self.addCleanup(lambda: shutil.rmtree(work, ignore_errors=True))
-        files = {
-            "a.md": "# a\nwidget widget common\n",
-            "b.md": "# b\ncommon common common\n",
-            "c.md": "# c\nunrelated filler text about coffee machines\n",
-        }
-        for n, b in files.items():
-            Path(work, n).write_text(b, encoding="utf-8")
-        Path(work, "_manifest.json").write_text(
-            json.dumps({n: f"/Memory/{n}" for n in files}), encoding="utf-8")
-        docs = recall.build_corpus(work)
-        vecidx.build(work, docs=docs)
-        # Force zero above-floor hits: search_vectors only returns cosines >= VEC_FLOOR;
-        # empty dict is the observed outcome for non-matching paraphrases and is what
-        # must leave blend weights at the legacy W_* set (exact-match non-regression).
-        vecidx.search_vectors = lambda *a, **k: {}
-        os.environ["RECALL_VEC"] = "1"
-        self.addCleanup(lambda: os.environ.pop("RECALL_VEC", None))
-        base = recall.search("widget", docs)
-        hybrid = recall.search("widget", docs, stage=work)
-        self.assertEqual([r["path"] for r in base], [r["path"] for r in hybrid])
-        self.assertEqual([r["id"] for r in base], [r["id"] for r in hybrid])
-        for r in hybrid:
+        for r in rows:
             self.assertNotIn("vec", r)
+            self.assertNotEqual(r["route"], "vector")
+
+    def test_search_exposes_no_stage_parameter(self):
+        import inspect
+        self.assertNotIn("stage", inspect.signature(recall.search).parameters)
+
+    def test_retired_vector_activation_symbols_are_gone(self):
+        for name in ("_vec_enabled", "VEC_WEIGHTS", "VEC_ACTIVATE_N"):
+            self.assertFalse(hasattr(recall, name), name)
+
+    def test_env_flag_cannot_activate_vector_scoring(self):
+        os.environ["RECALL_VEC"] = "1"
+        self.addCleanup(lambda: os.environ.pop("RECALL_VEC", None))
+        docs = self.corpus({"a.md": "# a\nwidget widget common\n",
+                            "b.md": "# b\ncommon common common\n"})
+        hot = [(r["path"], round(r["score"], 9)) for r in recall.search("widget", docs)]
+        os.environ.pop("RECALL_VEC", None)
+        cold = [(r["path"], round(r["score"], 9)) for r in recall.search("widget", docs)]
+        self.assertEqual(hot, cold)
 
 
 

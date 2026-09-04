@@ -9,12 +9,14 @@ cosine was ~9x slower than the claimed budget. What survives that measurement
 is the part of the design needing no model: BM25 + graph expansion +
 deterministic reranking.
 
-OPTIONAL DERIVED INDEX. Lexical+graph recall stays the default and needs no
-index - files are the database. As of 2026-09-02 an optional, dormant semantic
-vector channel (see docs/VECTOR-ANCHOR-OPS.md) may maintain a derived, deletable
-.idx/ cache under the stage dir; it is rebuildable from Markdown and never a
-source of truth. With no index / RECALL_VEC=0 / numpy absent, recall is
-byte-identical to lexical-only.
+OPTIONAL DERIVED INDEX. Lexical+graph recall is the only ranking path and needs
+no index - files are the database. A static-embedding vector channel was
+prototyped (see docs/VECTOR-ANCHOR-OPS.md) but its real-model semantic quality
+is FAILED, not merely unverified: raw cosine ranked hard negatives first. It is
+retired as a ranking signal - no environment variable or corpus size activates
+it. vecidx.py still maintains a derived, deletable .idx/ cache as a rebuildable
+candidate-discovery artifact for a future certified reranker; recall.search()
+never consults it, so recall is always deterministic.
 
 SCORING
     S(d,q) = 0.45*L + 0.25*G + 0.10*R + 0.20*I
@@ -53,17 +55,6 @@ HOP_DECAY = 0.5
 MAX_HOPS = 2
 MAX_SEEDS = 5
 DEFAULT_SALIENCE = 0.5
-VEC_WEIGHTS = {"lex": 0.30, "vec": 0.25, "graph": 0.25, "rec": 0.05, "sal": 0.15}
-VEC_ACTIVATE_N = 1000
-
-
-def _vec_enabled(count):
-    flag = os.environ.get("RECALL_VEC")
-    if flag == "1":
-        return True
-    if flag == "0":
-        return False
-    return count >= VEC_ACTIVATE_N
 
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.\-]*")
@@ -272,7 +263,7 @@ def recency_scores(docs):
     return out
 
 
-def search(query, docs, limit=5, stage=None):
+def search(query, docs, limit=5):
     qt = tokens(query)
     if not qt:
         raise ValueError("query has no usable tokens")
@@ -281,50 +272,20 @@ def search(query, docs, limit=5, stage=None):
     gph = graph_scores(lex, adj)
     rec = recency_scores(docs)
 
-    vec_raw, vecn, use_vec = {}, {}, False
-    if stage is not None:
-        try:
-            import vecidx
-            if vecidx.available() and _vec_enabled(len(docs)):
-                loaded = vecidx.load(stage)
-                if loaded is not None:
-                    keys, mat = loaded
-                    pairs = [(i, k) for i, k in enumerate(keys) if k in docs]
-                    if pairs:
-                        idx = [i for i, _ in pairs]
-                        present = [k for _, k in pairs]
-                        vec_raw = vecidx.search_vectors(query, present, mat[idx])
-                        if vec_raw:
-                            vecn = _normalise({k: max(0.0, v) for k, v in vec_raw.items()})
-                            use_vec = True
-        except Exception:
-            use_vec = False  # any failure => exact lexical fallback
-
-    if use_vec:
-        w = VEC_WEIGHTS
-    else:
-        w = {"lex": W_LEX, "vec": 0.0, "graph": W_GRAPH, "rec": W_REC, "sal": W_SAL}
-
     rows = []
     for did, d in docs.items():
         g = gph.get(did, 0.0)
-        v = vecn.get(did, 0.0)
-        total = (w["lex"] * lex[did] + w["vec"] * v + w["graph"] * g
-                 + w["rec"] * rec[did] + w["sal"] * d["salience"])
-        row = {
+        total = (W_LEX * lex[did] + W_GRAPH * g
+                 + W_REC * rec[did] + W_SAL * d["salience"])
+        rows.append({
             "id": did, "path": d["path"], "title": d["title"],
             "score": total, "lex": lex[did], "graph": g,
             "rec": rec[did], "sal": d["salience"],
-            "route": "lexical" if lex[did] > 0 else (
-                "graph" if g > 0 else ("vector" if v > 0 else "-")),
+            "route": "lexical" if lex[did] > 0 else ("graph" if g > 0 else "-"),
             "snippet": _snippet(d["text"], qt),
-        }
-        if use_vec:
-            row["vec"] = vec_raw.get(did, 0.0)
-        rows.append(row)
+        })
     rows.sort(key=lambda r: (-r["score"], r["id"]))
-    keep = [r for r in rows if r["lex"] > 0 or r["graph"] > 0
-            or (use_vec and r.get("vec", 0.0) >= vecidx.VEC_FLOOR)]
+    keep = [r for r in rows if r["lex"] > 0 or r["graph"] > 0]
     return keep[:limit]
 
 
@@ -345,9 +306,8 @@ def render(rows, query):
     for i, r in enumerate(rows, 1):
         out.append(f"{i}. [{r['score']:.3f}] {r['title']}")
         out.append(f"   {r['path']}")
-        vec = f"vec={r['vec']:.2f} " if "vec" in r else ""
         out.append(
-            f"   route={r['route']}  lex={r['lex']:.2f} {vec}"
+            f"   route={r['route']}  lex={r['lex']:.2f} "
             f"graph={r['graph']:.2f} rec={r['rec']:.2f} sal={r['sal']:.2f}"
         )
         if r["snippet"]:
@@ -446,7 +406,7 @@ def main():
         print("no staged notes found in /tmp", file=sys.stderr)
         return 2
     try:
-        rows = search(query, docs, limit, stage=STAGE)
+        rows = search(query, docs, limit)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
