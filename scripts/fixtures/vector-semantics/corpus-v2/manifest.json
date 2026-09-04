@@ -22,5 +22,6 @@
     "dev/queries.jsonl": "9e0f6235600f556b4fc5e0cfbabeca128cf696643b150bbccc3a8c78a2610cfb",
     "train/notes.jsonl": "f7f4749212e755ccf24943cbd1dcf6684ef70199aceba8134c84fa964203a9ef",
     "train/queries.jsonl": "340926619263b1c609f34faad1b2cc80d33c27b78601aa41487a73e38fb5dc40"
-  }
+  },
+  "frozen": true
 }

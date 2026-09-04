@@ -408,6 +408,7 @@ def compute_manifest(data, corpus_version) -> dict:
     corpus_hash = hashlib.sha256(rollup.encode("utf-8")).hexdigest()
     return {
         "corpus_version": corpus_version,
+        "frozen": True,
         "counts": counts,
         "file_hashes": file_hashes,
         "corpus_hash": corpus_hash,
@@ -423,7 +424,7 @@ def check_manifest(root, computed) -> list:
     except json.JSONDecodeError as exc:
         return [f"{MANIFEST} invalid: {exc}"]
     errors = []
-    for key in ("corpus_version", "counts", "file_hashes", "corpus_hash"):
+    for key in ("corpus_version", "frozen", "counts", "file_hashes", "corpus_hash"):
         if declared.get(key) != computed[key]:
             errors.append(f"{MANIFEST} {key} mismatch (declared != recomputed)")
     return errors
