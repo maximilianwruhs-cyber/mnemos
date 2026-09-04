@@ -713,6 +713,17 @@ def render_evidence(train_report: dict, dev_report: dict | None, manifest: dict)
             f"- Safety Recall@20: **{_ratio(dev_report['b1']['safety'], 'hit_at_20')}**",
             f"- Identifier Recall@20: **{_ratio(dev_report['b1']['identifier'], 'hit_at_20')}**",
         ]
+        b1_metrics = dev_report["b1"].get("metrics")
+        if b1_metrics:
+            lines += _slice_table("B1 By language", b1_metrics.get("languages", {}))
+            lines += _slice_table("B1 By contrast family", b1_metrics.get("families", {}))
+
+        missed_queries = [q for q in dev_report["b1"].get("queries", []) if not q.get("hit_at_20")]
+        if missed_queries:
+            lines += ["", "### B1 Missed Queries", ""]
+            for mq in sorted(missed_queries, key=lambda x: x["query_id"]):
+                lines.append(f"- `{mq['query_id']}`: Candidates searched: {mq.get('candidates', [])}")
+
         if dev_report.get("b2"):
             b2 = dev_report["b2"]["metrics"]
             overall = b2["overall"]
@@ -724,16 +735,30 @@ def render_evidence(train_report: dict, dev_report: dict | None, manifest: dict)
                 f"- Ranking determinism: **{dev_report['b2']['determinism']['repeats']} repeats**, "
                 f"`{dev_report['b2']['determinism']['ranking_sha256']}`",
             ]
-            lines += _slice_table("By language", b2.get("languages", {}))
-            lines += _slice_table("By contrast family", b2.get("families", {}))
+            lines += _slice_table("B2 By language", b2.get("languages", {}))
+            lines += _slice_table("B2 By contrast family", b2.get("families", {}))
         else:
             lines += ["", "B2 was not run because candidate retrieval did not clear its gate."]
-    lines += [
-        "", "## Environment", "",
-        "Windows timings are diagnostic; Linux x86-64 performance remains uncertified.", "",
-    ]
-    return "\n".join(lines)
 
+    lines += ["", "## File Identity & Provenance", ""]
+    lines.append(f"- Corpus hash: `{train_report.get('corpus_hash')}`")
+    if manifest.get("files"):
+        for name, digest in sorted(manifest["files"].items()):
+            lines.append(f"- `{name}`: `{digest}`")
+
+    if dev_report and dev_report.get("environment"):
+        env = dev_report["environment"]
+        lines += ["", "## Environment", "", f"- Python: `{env.get('python')}`", f"- Platform: `{env.get('platform')}`", f"- Provider: `{env.get('provider')}`"]
+        if env.get("dependencies"):
+            deps_str = ", ".join(f"`{k}=={v}`" for k, v in sorted(env["dependencies"].items()))
+            lines.append(f"- Dependencies: {deps_str}")
+    else:
+        lines += [
+            "", "## Environment", "",
+            "Windows timings are diagnostic; Linux x86-64 performance remains uncertified.",
+        ]
+    lines.append("")
+    return "\n".join(lines)
 
 def _write_text(path: Path, text: str) -> None:
     path = Path(path)

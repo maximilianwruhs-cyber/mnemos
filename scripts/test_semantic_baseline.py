@@ -638,16 +638,53 @@ class EvidenceRenderTests(unittest.TestCase):
         self.assertIn("149/156", text)
         self.assertIn("Windows timings are diagnostic", text)
 
-    def test_render_candidate_no_go_states_that_b2_did_not_run(self):
+    def test_render_candidate_no_go_includes_gate_slices_misses_and_hashes(self):
         train = {
-            "status": "CANDIDATE_NO_GO", "selected_policy_id": None,
+            "status": "POLICY_SELECTED", "selected_policy_id": "current_ascii-16-4",
+            "corpus_hash": "corpus123",
             "b0": {
-                "current_ascii": {"metrics": {"overall": {"hit_at_20": 60, "queries": 84}}},
+                "current_ascii": {"metrics": {"overall": {"hit_at_20": 70, "queries": 84}}},
                 "unicode_nfc": {"metrics": {"overall": {"hit_at_20": 70, "queries": 84}}},
             },
         }
-        text = baseline.render_evidence(train, None, {"status": "CANDIDATE_NO_GO"})
+        dev = {
+            "status": "CANDIDATE_NO_GO",
+            "environment": {
+                "python": "3.12.10", "provider": "CPUExecutionProvider",
+                "dependencies": {"model2vec": "0.9.0"},
+            },
+            "b1": {
+                "overall": {"hit_at_20": 148, "queries": 156},
+                "safety": {"hit_at_20": 100, "queries": 108},
+                "identifier": {"hit_at_20": 12, "queries": 12},
+                "gate_errors": ["overall Recall@20 148/156 < 155/156"],
+                "metrics": {
+                    "languages": {
+                        "de": {"hit_at_1": 36, "hit_at_3": 50, "hit_at_20": 71, "queries": 78}
+                    },
+                    "families": {
+                        "permit-vs-prohibit": {
+                            "hit_at_1": 13, "hit_at_3": 14, "hit_at_20": 17, "queries": 18
+                        }
+                    },
+                },
+                "queries": [
+                    {"query_id": "q-missed", "hit_at_20": False, "candidates": ["n-hard"]}
+                ],
+            },
+            "b2": None,
+        }
+        manifest = {
+            "status": "CANDIDATE_NO_GO",
+            "files": {"dev-report.json": "d" * 64},
+        }
+        text = baseline.render_evidence(train, dev, manifest)
         self.assertIn("B2 was not run", text)
+        self.assertIn("100/108", text)
+        self.assertIn("permit-vs-prohibit | 13/18 | 14/18 | 17/18", text)
+        self.assertIn("q-missed", text)
+        self.assertIn("dddddddddddddddd", text)
+        self.assertIn("`model2vec==0.9.0`", text)
 
 
 class BaselineCliTests(unittest.TestCase):
