@@ -17,6 +17,7 @@ Reach an evidence-backed release decision for MNEMOS semantic recall: either an 
 ## Decisions so far
 
 - [Set the semantic release-decision charter](tickets/set-the-semantic-release-decision-charter.md): use a gate-first, one-candidate evidence ladder with frozen full-pool certification, safety-first abstention, explicit certified activation, and an honest GO/NO-GO terminal decision.
+- [Define the certification corpus contract](tickets/define-the-certification-corpus-contract.md): pin the approved principles as `corpus-v2/CONTRACT.md`, enforced by `scripts/corpus_lint.py` and proven by `scripts/test_corpus_lint.py` — normalized note-pool with gold-ID query records superseding the v1 smoke fixture, synthetic-only de-identification, a >= 0.60 cross-scenario leakage bar, a canonical hashed manifest, and a sealed one-shot certification loader.
 
 ## Not yet specified
 

@@ -76,6 +76,26 @@ Each query records one or more acceptable gold note IDs, labeled hard negatives,
 
 Certification evaluates each query through the actual candidate generator against the full certification note pool, never only its local positive/hard/easy triple. The artifact is immutable and content-hashed. Training-set size remains evidence-driven rather than fixed prematurely.
 
+### Pinned contract (corpus-v2)
+
+The principles above are pinned as a machine-checked contract:
+`scripts/fixtures/vector-semantics/corpus-v2/CONTRACT.md`, enforced by
+`scripts/corpus_lint.py` (verification layer 1) and proven by
+`scripts/test_corpus_lint.py`. Concrete decisions settled during authoring:
+
+- Normalized note pool plus query records referencing gold **note IDs**;
+  `corpus-v2/` supersedes the `corpus-v1` smoke fixture as the certification corpus.
+- Provenance enum: `derived-failure-pattern`, `synthetic-contrast`,
+  `paraphrase-augmentation`; no `raw` in any split. Synthetic-only, no verbatim
+  span of eight or more tokens; optional `de-id-denylist.txt` is enforced.
+- Cross-scenario leakage is a hard error at >= 0.60 normalized-token Jaccard.
+- Split assignment is explicit and authored; development adds a >= 150-query
+  floor; unmet floors are met by adding scenarios, never by reassignment.
+- Canonical id-sorted minified JSONL with per-file sha256 and a rollup
+  `corpus_hash` in `manifest.json`; `corpus_lint --check` recomputes byte-for-byte.
+- `load_split(root, split, certified_run=False)` seals `certification`; a single
+  post-freeze certification read; no training/calibration config may reference it.
+
 ## 7. Acceptance gates
 
 | Gate | Pass criterion |
